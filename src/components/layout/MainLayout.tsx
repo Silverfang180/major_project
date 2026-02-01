@@ -5,6 +5,7 @@ import { DiffViewer } from '../dashboard/DiffViewer';
 import { type Version } from '../../lib/mockData';
 import { api } from '../../lib/api';
 import { Loader2 } from 'lucide-react';
+import { TrashBin } from '../dashboard/TrashBin';
 
 const USER_ID = "00000000-0000-0000-0000-000000000000"; // Placeholder UUID for demo
 
@@ -13,6 +14,7 @@ export const MainLayout: React.FC = () => {
     const [currentVersionId, setCurrentVersionId] = useState<string>("");
     const [showDiff, setShowDiff] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [showTrash, setShowTrash] = useState(false);
     const [activePromptId, setActivePromptId] = useState<string>("");
     const [promptList, setPromptList] = useState<any[]>([]); // Store list of prompts
 
@@ -263,6 +265,7 @@ export const MainLayout: React.FC = () => {
                 onSelectPrompt={setActivePromptId}
                 onRenamePrompt={handleRenamePrompt}
                 onDeletePrompt={handleDeletePrompt}
+                onOpenTrash={() => setShowTrash(true)}
             />
 
             {/* Main Content Area */}
@@ -280,6 +283,46 @@ export const MainLayout: React.FC = () => {
                         currentVersion={currentVersion}
                         previousVersion={previousVersion}
                         onClose={() => setShowDiff(false)}
+                    />
+                )}
+
+                {/* Trash Bin Modal */}
+                {showTrash && (
+                    <TrashBin
+                        onClose={() => setShowTrash(false)}
+                        onRestore={async () => {
+                            try {
+                                // 1. Refresh global prompts list (for sidebar)
+                                const updatedList = await api.getPrompts();
+                                setPromptList(updatedList);
+
+                                // 2. Refresh active prompt's versions (if one is selected)
+                                if (activePromptId) {
+                                    const history = await api.getVersions(activePromptId);
+                                    const mappedVersions = history.map((v: any) => ({
+                                        id: String(v.version_id), // FIX: Convert number to string
+                                        date: new Date(v.created_at).toLocaleDateString(),
+                                        timestamp: v.created_at,
+                                        text: v.prompt_text,
+                                        cost: "$0.0000",
+                                        author: "You",
+                                        status: "Draft" as const, // FIX: Cast to literal type
+                                        accuracy: "N/A"
+                                    }));
+                                    setVersions(mappedVersions);
+
+                                    // Also update current version if needed
+                                    if (updatedList.length > 0) {
+                                        const active = updatedList.find((p: any) => p.prompt_id === activePromptId);
+                                        // Optional: logic to select latest
+                                    }
+                                } else if (updatedList.length > 0) {
+                                    setActivePromptId(updatedList[0].prompt_id);
+                                }
+                            } catch (error) {
+                                console.error("Failed to restore:", error);
+                            }
+                        }}
                     />
                 )}
             </div>

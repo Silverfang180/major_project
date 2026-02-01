@@ -14,6 +14,7 @@ interface VersionHistorySidebarProps {
     onSelectPrompt: (id: string) => void;
     onDeletePrompt: (id: string) => void;
     onRenamePrompt: (id: string, newTitle: string) => void;
+    onOpenTrash: () => void;
 }
 
 export const VersionHistorySidebar: React.FC<VersionHistorySidebarProps> = ({
@@ -26,7 +27,8 @@ export const VersionHistorySidebar: React.FC<VersionHistorySidebarProps> = ({
     activePromptId,
     onSelectPrompt,
     onDeletePrompt,
-    onRenamePrompt
+    onRenamePrompt,
+    onOpenTrash
 }) => {
     return (
         <div className="w-80 border-r border-border bg-card flex flex-col h-full">
@@ -150,6 +152,15 @@ export const VersionHistorySidebar: React.FC<VersionHistorySidebarProps> = ({
                         </div>
                     </div>
                 ))}
+            </div>
+            <div className="p-3 border-t border-border mt-auto">
+                <button
+                    onClick={onOpenTrash}
+                    className="w-full flex items-center justify-center gap-2 p-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground rounded-md transition-all"
+                >
+                    <Trash2 className="w-4 h-4" />
+                    Open Trash Bin
+                </button>
             </div>
         </div>
     );

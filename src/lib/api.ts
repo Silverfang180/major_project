@@ -9,6 +9,8 @@ interface PromptResponse {
     title: string;
     created_by: string;
     created_at: string;
+    updated_at?: string;
+    deleted_at?: string | null;
     latest_version?: VersionResponse;
 }
 
@@ -22,6 +24,7 @@ interface VersionResponse {
     created_by: string;
     is_latest: boolean;
     model_settings: Record<string, any>;
+    deleted_at?: string | null;
 }
 
 interface SimulationResponse {
@@ -99,17 +102,15 @@ export const api = {
         return res.json() as Promise<SimulationResponse>;
     },
 
-    async deleteVersion(versionId: number) {
-        const res = await fetch(`${API_BASE}/versions/${versionId}`, {
-            method: 'DELETE'
-        });
+    async deleteVersion(versionId: number, permanent = false) {
+        const url = `${API_BASE}/versions/${versionId}${permanent ? '?permanent=true' : ''}`;
+        const res = await fetch(url, { method: 'DELETE' });
         if (!res.ok) throw new Error("Failed to delete version");
     },
 
-    async deletePrompt(promptId: string) {
-        const res = await fetch(`${API_BASE}/prompts/${promptId}`, {
-            method: 'DELETE'
-        });
+    async deletePrompt(promptId: string, permanent = false) {
+        const url = `${API_BASE}/prompts/${promptId}${permanent ? '?permanent=true' : ''}`;
+        const res = await fetch(url, { method: 'DELETE' });
         if (!res.ok) throw new Error("Failed to delete prompt");
     },
 
@@ -126,6 +127,35 @@ export const api = {
             })
         });
         if (!res.ok) throw new Error("Failed to update prompt");
+        return res.json();
+    },
+
+    async getTrashedPrompts() {
+        const res = await fetch(`${API_BASE}/prompts/trash/all`);
+        if (!res.ok) throw new Error("Failed to fetch trash");
+        return res.json() as Promise<PromptResponse[]>;
+    },
+
+    async restorePrompt(promptId: string) {
+        const res = await fetch(`${API_BASE}/prompts/${promptId}/restore`, {
+            method: 'POST'
+        });
+        if (res.status === 409) throw new Error("Key conflict: Active prompt exists");
+        if (!res.ok) throw new Error("Failed to restore prompt");
+        return res.json();
+    },
+
+    async getTrashedVersions() {
+        const res = await fetch(`${API_BASE}/versions/trash/all`);
+        if (!res.ok) throw new Error("Failed to fetch trash");
+        return res.json() as Promise<VersionResponse[]>;
+    },
+
+    async restoreVersion(versionId: number) {
+        const res = await fetch(`${API_BASE}/versions/${versionId}/restore`, {
+            method: 'POST'
+        });
+        if (!res.ok) throw new Error("Failed to restore version");
         return res.json();
     }
 };

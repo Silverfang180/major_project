@@ -18,12 +18,13 @@ class Prompt(Base):
     __tablename__ = "prompts"
 
     prompt_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    key = Column(Text, unique=True, nullable=False)
+    key = Column(Text, nullable=False)
     title = Column(Text, nullable=False)
     description = Column(Text, nullable=True)
     created_by = Column(UUID(as_uuid=True), nullable=False)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     # Denormalization: Direct pointer to latest version (Performance Fix)
     latest_version_id = Column(BigInteger, ForeignKey("prompt_versions.version_id", use_alter=True))
@@ -36,7 +37,8 @@ class Prompt(Base):
     __table_args__ = (
         CheckConstraint("char_length(key) > 0", name="ck_prompts_key_not_empty"),
         CheckConstraint("char_length(title) > 0", name="ck_prompts_title_not_empty"),
-        Index("idx_prompts_key", "key"),
+        # Soft Delete Index: Only enforce uniqueness on active records
+        Index("idx_prompts_key", "key", unique=True, postgresql_where=Column("deleted_at").is_(None)),
         Index("idx_prompts_created_by", "created_by"),
     )
 
@@ -60,6 +62,7 @@ class PromptVersion(Base):
     
     # Add version for optimistic locking
     version = Column(Integer, nullable=False, default=1)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     prompt = relationship("Prompt", back_populates="versions", foreign_keys=[prompt_id])
 

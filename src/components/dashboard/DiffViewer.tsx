@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Version } from '../../lib/mockData';
-import { X, ArrowRight, TrendingUp, TrendingDown, DollarSign, Cpu } from 'lucide-react';
+import { X, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface DiffViewerProps {
