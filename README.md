@@ -4,6 +4,8 @@ A prompt version control system with execution tracking, built on FastAPI and Po
 
 Chronicle lets you create prompts, manage immutable versions with full history, promote versions to production, execute them against an LLM (Groq), and track every run with cost and latency data.
 
+All API endpoints require an `X-API-Key` header. The GUI and docs are excluded from authentication.
+
 ---
 
 ## Architecture
@@ -47,7 +49,7 @@ chronicle/
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/prompts` | Create a prompt (key, title, created_by) |
+| POST | `/prompts` | Create a prompt (title, created_by; key is auto-generated if omitted) |
 | GET | `/prompts` | List all prompts with latest version |
 | GET | `/prompts/{id}` | Get prompt by ID with latest version |
 | DELETE | `/prompts/{id}` | Delete prompt and all its versions |
@@ -64,6 +66,41 @@ chronicle/
 | POST | `/execute/{prompt_key}` | Execute production version with variables |
 
 The execute endpoint injects `{variables}` into `{{placeholders}}`, calls the LLM, records a `Run` row with status, latency, cost, and returns the response. The `X-PromptOps-Run-ID` header contains the run ID.
+
+---
+
+## Authentication
+
+All API endpoints require an `X-API-Key` header matching the configured key. Excluded paths: `/gui/*`, `/health`, `/docs`, `/redoc`, `/openapi.json`.
+
+```powershell
+# Example authenticated request
+Invoke-WebRequest -Uri http://localhost:8000/api/v1/version-control/prompts `
+  -Headers @{"X-API-Key"="chronicle-dev-key"}
+```
+
+The GUI automatically includes the API key in all fetch calls.
+
+---
+
+## GUI Features
+
+### Three-Theme System
+
+The header contains a segmented control with three themes:
+
+| Theme | Description |
+|-------|-------------|
+| **Dark** | Cold dark (blue accent, `#0B0E11` canvas) |
+| **Light** | Clean white (blue accent, `#FFFFFF` canvas) |
+| **Matte** | Warm off-black inspired by Claude.ai (amber-orange accent, `#1a1612` canvas) |
+
+Matte is the default. Selection persists to `localStorage` under key `chronicle-theme`.
+
+### Cost Estimation
+
+- **Live token bar** — below the prompt editor textarea, shows estimated token count and per-call cost as you type
+- **Estimate Cost button** — next to Execute in the execution panel, shows a detailed breakdown (tokens, input cost, model) for the production version before running it
 
 ---
 
@@ -130,14 +167,14 @@ docker-compose up --build
 ## Testing
 
 ```powershell
-# Run all 27 tests
+# Run all 31 tests
 .venv\Scripts\python.exe -m pytest test_chronicle_full.py -v
 
 # Run a specific section
 .venv\Scripts\python.exe -m pytest test_chronicle_full.py -v -k "TestExecutionBoundary"
 ```
 
-Test coverage spans prompt CRUD, version control, promotion + alias history, execution boundary, run integrity, cost calculation, and the alias history endpoint.
+Test coverage spans prompt CRUD, version control, promotion + alias history, execution boundary, run integrity, cost calculation, authentication (missing key, wrong key, correct key, auto-generated key), and the alias history endpoint.
 
 See [docs/testing-guide.md](docs/testing-guide.md) for the full breakdown of what each test verifies and manual frontend testing instructions.
 
@@ -149,6 +186,7 @@ See [docs/testing-guide.md](docs/testing-guide.md) for the full breakdown of wha
 |----------|----------|---------|-------------|
 | `DATABASE_URL` | Yes | localhost | Async PostgreSQL connection string |
 | `GROQ_API_KEY` | Yes | — | Groq API key for LLM calls |
+| `API_KEY` | No | `chronicle-dev-key` | API key for authenticating requests |
 | `DEFAULT_LLM_MODEL` | No | `llama-3.3-70b-versatile` | Default model for execution |
 | `ENVIRONMENT` | No | `development` | Runtime environment |
 | `LOG_LEVEL` | No | `INFO` | Logging level |

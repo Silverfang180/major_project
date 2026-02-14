@@ -51,13 +51,16 @@ const elements = {
     confirmModal: document.getElementById('confirmModal'),
     toast: document.getElementById('toast'),
     toastMessage: document.getElementById('toastMessage'),
-    themeToggle: document.getElementById('themeToggle'),
+    themeSelector: document.getElementById('themeSelector'),
     // Execution
     executionSection: document.getElementById('executionSection'),
     variableInputs: document.getElementById('variableInputs'),
     btnExecute: document.getElementById('btnExecute'),
+    btnEstimateCost: document.getElementById('btnEstimateCost'),
     execModel: document.getElementById('execModel'),
     runResult: document.getElementById('runResult'),
+    costEstimatePanel: document.getElementById('costEstimatePanel'),
+    tokenEstimateBar: document.getElementById('tokenEstimateBar'),
     runIdValue: document.getElementById('runIdValue'),
     runStatusValue: document.getElementById('runStatusValue'),
     runLatencyValue: document.getElementById('runLatencyValue'),
@@ -115,6 +118,39 @@ function generateKey(title) {
 function formatCost(cost) {
     if (cost === null || cost === undefined) return 'N/A';
     return '$' + cost.toFixed(6);
+}
+
+function estimateTokens(text) {
+    return Math.ceil(text.length / 4);
+}
+
+function estimateCost(promptText, modelSettingsJson) {
+    const tokens = estimateTokens(promptText);
+    let model = null;
+    try {
+        const settings = JSON.parse(modelSettingsJson);
+        model = settings.model || null;
+    } catch (e) {
+        model = null;
+    }
+    const pricing = MODEL_PRICING[model];
+    if (!pricing) return { tokens, cost: null, model };
+    const cost = (tokens / 1000) * pricing.input_cost_per_1k;
+    return { tokens, cost, model };
+}
+
+function updateTokenEstimateBar() {
+    const text = elements.promptText.value;
+    if (!text) {
+        elements.tokenEstimateBar.textContent = '';
+        return;
+    }
+    const estimate = estimateCost(text, elements.modelSettings.value);
+    if (estimate.cost !== null) {
+        elements.tokenEstimateBar.textContent = `~${estimate.tokens} tokens \u00b7 Est. $${estimate.cost.toFixed(6)} per call \u00b7 ${estimate.model}`;
+    } else {
+        elements.tokenEstimateBar.textContent = `~${estimate.tokens} tokens \u00b7 Model not set`;
+    }
 }
 
 // -------------------------------------------------------------------
@@ -177,6 +213,9 @@ async function selectPrompt(promptId) {
     state.runHistory = [];
     renderPromptList();
 
+    // Clear cost estimate panel from previous prompt
+    elements.costEstimatePanel.style.display = 'none';
+
     try {
         await fetchPromptDetails(promptId);
         await fetchVersionHistory(promptId);
@@ -214,6 +253,7 @@ function renderPromptDetails() {
         elements.modelSettings.value = '';
     }
     elements.changeNote.value = '';
+    updateTokenEstimateBar();
 }
 
 async function createPrompt(key, title, description) {
@@ -502,6 +542,7 @@ async function executePrompt() {
     elements.btnExecute.disabled = true;
     elements.btnExecute.textContent = 'Executing...';
     elements.runResult.style.display = 'none';
+    elements.costEstimatePanel.style.display = 'none';
 
     const model = prodVersion.model_settings ? prodVersion.model_settings.model : null;
 
@@ -696,17 +737,16 @@ function confirmDeletePrompt() {
 // Theme
 // -------------------------------------------------------------------
 function initTheme() {
-    const savedTheme = localStorage.getItem('chronicle-theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const theme = savedTheme || (prefersDark ? 'dark' : 'light');
-    document.documentElement.setAttribute('data-theme', theme);
+    const savedTheme = localStorage.getItem('chronicle-theme') || 'matte';
+    setTheme(savedTheme);
 }
 
-function toggleTheme() {
-    const current = document.documentElement.getAttribute('data-theme');
-    const next = current === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem('chronicle-theme', next);
+function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('chronicle-theme', theme);
+    elements.themeSelector.querySelectorAll('.theme-option').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-theme') === theme);
+    });
 }
 
 // -------------------------------------------------------------------
@@ -787,8 +827,78 @@ elements.confirmModal.addEventListener('click', (e) => {
     if (e.target === elements.confirmModal) closeConfirmModal();
 });
 
-elements.themeToggle.addEventListener('click', toggleTheme);
+elements.themeSelector.addEventListener('click', (e) => {
+    const btn = e.target.closest('.theme-option');
+    if (!btn) return;
+    setTheme(btn.getAttribute('data-theme'));
+});
 elements.btnExecute.addEventListener('click', executePrompt);
+
+// Estimate button in execution panel
+elements.btnEstimateCost.addEventListener('click', () => {
+    if (!state.selectedPrompt || !state.selectedPrompt.production_version_id) return;
+
+    const prodVersion = state.versionHistory.find(
+        v => v.version_id === state.selectedPrompt.production_version_id
+    );
+    if (!prodVersion) return;
+
+    const placeholders = extractPlaceholders(prodVersion.prompt_text);
+    let promptText = prodVersion.prompt_text;
+    let variablesNote = '';
+    let allFilled = true;
+
+    for (const name of placeholders) {
+        const input = document.getElementById(`var-${name}`);
+        if (input && input.value.trim()) {
+            promptText = promptText.replaceAll(`{{${name}}}`, input.value.trim());
+        } else {
+            allFilled = false;
+        }
+    }
+
+    if (placeholders.length > 0 && !allFilled) {
+        variablesNote = 'Variables not filled \u2014 estimate based on template length.';
+    }
+
+    const modelSettingsJson = prodVersion.model_settings ? JSON.stringify(prodVersion.model_settings) : '';
+    const estimate = estimateCost(promptText, modelSettingsJson);
+
+    let html = '<div class="estimate-title">Cost Estimate</div>';
+
+    if (estimate.model && estimate.cost !== null) {
+        html += `
+            <div class="estimate-field">
+                <span class="estimate-label">Prompt tokens</span>
+                <span class="estimate-value">~${estimate.tokens}</span>
+            </div>
+            <div class="estimate-field">
+                <span class="estimate-label">Input cost</span>
+                <span class="estimate-value">$${estimate.cost.toFixed(6)}</span>
+            </div>
+            <div class="estimate-field">
+                <span class="estimate-label">Model</span>
+                <span class="estimate-value">${escapeHtml(estimate.model)}</span>
+            </div>
+            <div class="estimate-note">Estimate only. Actual cost depends on completion tokens.${variablesNote ? ' ' + variablesNote : ''}</div>
+        `;
+    } else {
+        html += `
+            <div class="estimate-field">
+                <span class="estimate-label">Prompt tokens</span>
+                <span class="estimate-value">~${estimate.tokens}</span>
+            </div>
+            <div class="estimate-note">Model not set \u2014 configure model settings on the version.${variablesNote ? ' ' + variablesNote : ''}</div>
+        `;
+    }
+
+    elements.costEstimatePanel.innerHTML = html;
+    elements.costEstimatePanel.style.display = 'block';
+});
+
+// Live token estimate bar in editor
+elements.promptText.addEventListener('keyup', updateTokenEstimateBar);
+elements.modelSettings.addEventListener('keyup', updateTokenEstimateBar);
 
 // Auto-populate key from title
 document.getElementById('newPromptTitle').addEventListener('keyup', () => {

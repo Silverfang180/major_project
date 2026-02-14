@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="matte">
 
 <head>
     <meta charset="UTF-8">
@@ -7,6 +7,13 @@
     <title>Chronicle — Prompt Version Control</title>
     <meta name="description" content="A system for managing prompt versions with full history tracking">
     <link rel="stylesheet" href="style.css">
+    <script>
+        // Apply saved theme before first render to prevent flash
+        (function () {
+            var t = localStorage.getItem('chronicle-theme') || 'matte';
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
 </head>
 
 <body>
@@ -18,8 +25,10 @@
                     <h1 class="app-title">Chronicle</h1>
                 </div>
                 <div class="header-right">
-                    <div class="theme-toggle" id="themeToggle" title="Toggle theme">
-                        <div class="theme-toggle-track"></div>
+                    <div class="theme-selector" id="themeSelector">
+                        <button class="theme-option" data-theme="dark">Dark</button>
+                        <button class="theme-option" data-theme="light">Light</button>
+                        <button class="theme-option active" data-theme="matte">Matte</button>
                     </div>
                     <div class="health-indicator">
                         <span class="health-dot" id="healthDot"></span>
@@ -90,6 +99,7 @@
                         <label for="promptText">Prompt Text</label>
                         <textarea id="promptText" class="editor-textarea" rows="8"
                             placeholder="Enter your prompt text... Use {{variable}} for injected values"></textarea>
+                        <div class="token-estimate-bar" id="tokenEstimateBar"></div>
                     </div>
 
                     <div class="form-group">
@@ -116,12 +126,18 @@
 
                     <div id="variableInputs" class="variable-inputs"></div>
 
-                    <button class="btn-primary btn-execute" id="btnExecute">
-                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M4 2l10 6-10 6V2z" />
-                        </svg>
-                        Execute
-                    </button>
+                    <div class="execution-button-row">
+                        <button class="btn-primary btn-execute" id="btnExecute">
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M4 2l10 6-10 6V2z" />
+                            </svg>
+                            Execute
+                        </button>
+                        <button class="btn-secondary btn-estimate" id="btnEstimateCost">Estimate Cost</button>
+                    </div>
+
+                    <!-- Cost Estimate -->
+                    <div class="cost-estimate-panel" id="costEstimatePanel" style="display: none;"></div>
 
                     <!-- Run Result -->
                     <div class="run-result" id="runResult" style="display: none;">

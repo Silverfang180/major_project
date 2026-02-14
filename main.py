@@ -49,7 +49,7 @@ PUBLIC_PATHS = ("/health", "/docs", "/redoc", "/openapi.json")
 @app.middleware("http")
 async def api_key_middleware(request: Request, call_next):
     path = request.url.path
-    if path.startswith("/gui") or path in PUBLIC_PATHS:
+    if request.method == "OPTIONS" or path.startswith("/gui") or path in PUBLIC_PATHS:
         return await call_next(request)
     api_key = request.headers.get("X-API-Key")
     if api_key != settings.api_key:
