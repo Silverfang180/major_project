@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle — Prompt Version Control</title>
+    <meta name="description" content="A system for managing prompt versions with full history tracking">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- HEADER -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="header-left">
+                    <h1 class="app-title">Chronicle</h1>
+                </div>
+                <div class="header-right">
+                    <div class="theme-toggle" id="themeToggle" title="Toggle theme">
+                        <div class="theme-toggle-track"></div>
+                    </div>
+                    <div class="health-indicator">
+                        <span class="health-dot" id="healthDot"></span>
+                        <span class="health-text" id="healthText">Checking...</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- SIDEBAR: Prompt List -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Prompts</h2>
+                <button class="btn-icon" id="btnCreatePrompt" title="Create Prompt">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="8" y1="3" x2="8" y2="13"></line>
+                        <line x1="3" y1="8" x2="13" y2="8"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="prompt-list" id="promptList">
+                <div class="empty-state">No prompts yet</div>
+            </div>
+        </aside>
+
+        <!-- MAIN PANEL: Editor + Execution -->
+        <main class="main-panel">
+            <div class="welcome-screen" id="welcomeScreen">
+                <div class="welcome-content">
+                    <h2>Welcome to Chronicle</h2>
+                    <p>Select a prompt from the sidebar or create a new one to get started.</p>
+                </div>
+            </div>
+
+            <!-- Skeleton Loading State -->
+            <div class="loading-state" id="loadingState" style="display: none;">
+                <div class="skeleton skeleton-text short"></div>
+                <div class="skeleton skeleton-text medium"></div>
+                <div class="skeleton skeleton-text long"></div>
+                <div class="skeleton skeleton-block"></div>
+                <div class="skeleton skeleton-block"></div>
+            </div>
+
+            <div class="prompt-view" id="promptView" style="display: none;">
+                <div class="prompt-header">
+                    <div class="prompt-meta">
+                        <div class="prompt-key" id="promptKey"></div>
+                        <h2 class="prompt-title" id="promptTitle"></h2>
+                        <p class="prompt-description" id="promptDescription"></p>
+                    </div>
+                    <button class="btn-danger-icon" id="btnDeletePrompt" title="Delete Prompt">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path
+                                d="M3 4h10M5 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1M6 7v5M10 7v5M4 4l1 9a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1l1-9">
+                            </path>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- VERSION EDITOR -->
+                <div class="editor-section">
+                    <div class="section-header">
+                        <h3>New Version</h3>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="promptText">Prompt Text</label>
+                        <textarea id="promptText" class="editor-textarea" rows="8"
+                            placeholder="Enter your prompt text... Use {{variable}} for injected values"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="modelSettings">Model Settings (JSON)</label>
+                        <textarea id="modelSettings" class="editor-textarea code" rows="4"
+                            placeholder='{"model": "llama-3.3-70b-versatile", "temperature": 0.7}'></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="changeNote">Change Note</label>
+                        <input type="text" id="changeNote" class="editor-input"
+                            placeholder="Describe what changed in this version...">
+                    </div>
+
+                    <button class="btn-primary" id="btnSaveVersion">Create New Version</button>
+                </div>
+
+                <!-- EXECUTION PANEL -->
+                <div class="execution-section" id="executionSection" style="display: none;">
+                    <div class="section-header">
+                        <h3>Execute Production Version</h3>
+                        <span class="exec-badge" id="execModel"></span>
+                    </div>
+
+                    <div id="variableInputs" class="variable-inputs"></div>
+
+                    <button class="btn-primary btn-execute" id="btnExecute">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M4 2l10 6-10 6V2z" />
+                        </svg>
+                        Execute
+                    </button>
+
+                    <!-- Run Result -->
+                    <div class="run-result" id="runResult" style="display: none;">
+                        <div class="run-result-header">
+                            <span class="run-result-title">Run Result</span>
+                            <span class="run-status" id="runStatus"></span>
+                        </div>
+                        <div class="run-result-body">
+                            <div class="run-result-field" id="runIdField">
+                                <span class="field-label">Run ID</span>
+                                <span class="field-value" id="runIdValue"></span>
+                            </div>
+                            <div class="run-result-field">
+                                <span class="field-label">Status</span>
+                                <span class="field-value" id="runStatusValue"></span>
+                            </div>
+                            <div class="run-result-field">
+                                <span class="field-label">Latency</span>
+                                <span class="field-value" id="runLatencyValue"></span>
+                            </div>
+                            <div class="run-result-field">
+                                <span class="field-label">Cost</span>
+                                <span class="field-value" id="runCostValue"></span>
+                            </div>
+                            <div class="run-result-field">
+                                <span class="field-label">Tokens</span>
+                                <span class="field-value" id="runTokensValue"></span>
+                            </div>
+                            <div class="run-result-response" id="runResponseBlock">
+                                <span class="field-label">Response</span>
+                                <div class="response-text" id="runResponseValue"></div>
+                            </div>
+                            <div class="run-result-error" id="runErrorBlock" style="display: none;">
+                                <span class="field-label">Error</span>
+                                <div class="error-text" id="runErrorValue"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Run History -->
+                    <div class="run-history" id="runHistorySection" style="display: none;">
+                        <div class="section-header">
+                            <h3>Run History (Session)</h3>
+                        </div>
+                        <div class="run-history-list" id="runHistoryList"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- TIMELINE PANEL: Version History + Alias History -->
+        <aside class="timeline-panel" id="timelinePanel" style="display: none;">
+            <div class="timeline-header">
+                <h3>Version History</h3>
+                <span class="version-count" id="versionCount">0 versions</span>
+            </div>
+            <div class="version-list" id="versionList">
+                <div class="empty-state">No versions yet</div>
+            </div>
+
+            <!-- Alias History -->
+            <div class="alias-history-section" id="aliasHistorySection" style="display: none;">
+                <div class="alias-history-header">
+                    <h3>Promotion History</h3>
+                </div>
+                <div class="alias-history-list" id="aliasHistoryList"></div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- CREATE PROMPT MODAL -->
+    <div class="modal" id="createPromptModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Prompt</h3>
+                <button class="btn-close" id="btnCloseCreateModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="newPromptKey">Key</label>
+                    <input type="text" id="newPromptKey" class="modal-input" placeholder="Auto-generated from title">
+                </div>
+                <div class="form-group">
+                    <label for="newPromptTitle">Title</label>
+                    <input type="text" id="newPromptTitle" class="modal-input" placeholder="My Prompt Title" required>
+                </div>
+                <div class="form-group">
+                    <label for="newPromptDescription">Description</label>
+                    <textarea id="newPromptDescription" class="modal-textarea" rows="3"
+                        placeholder="Describe the purpose of this prompt..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="btnCancelCreate">Cancel</button>
+                <button class="btn-primary" id="btnConfirmCreate">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONFIRM DELETE MODAL -->
+    <div class="modal" id="confirmModal">
+        <div class="modal-content modal-small">
+            <div class="modal-header danger">
+                <h3 id="confirmTitle">Delete Item</h3>
+                <button class="btn-close" id="btnCloseConfirmModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="btnCancelConfirm">Cancel</button>
+                <button class="btn-danger" id="btnConfirmAction">Delete Forever</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div class="toast" id="toast">
+        <span id="toastMessage"></span>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
