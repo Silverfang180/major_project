@@ -3,31 +3,29 @@ from typing import Optional, Dict, Any, List
 from uuid import UUID
 from pydantic import BaseModel, Field, ConfigDict
 
-# ------------------------
-# Prompt Schemas
-# ------------------------
 
 class PromptBase(BaseModel):
-    key: str = Field(min_length=1)
+    key: Optional[str] = Field(None, min_length=1)
     title: str = Field(min_length=1)
     description: Optional[str] = None
 
 class PromptCreate(PromptBase):
-    key: str | None = None
     created_by: UUID
 
 class PromptRead(PromptBase):
     prompt_id: UUID
+    key: str
     created_by: UUID
     created_at: datetime
     updated_at: Optional[datetime] = None
     production_version_id: Optional[int] = None
+    deleted_at: Optional[datetime] = None
     
     model_config = ConfigDict(from_attributes=True)
 
-# ------------------------
-# Version Schemas
-# ------------------------
+class PromptPromote(BaseModel):
+    version_id: int
+
 
 class VersionBase(BaseModel):
     prompt_text: str = Field(min_length=1)
@@ -45,23 +43,9 @@ class VersionRead(VersionBase):
     created_by: UUID
     created_at: datetime
     is_latest: bool
+    deleted_at: Optional[datetime] = None
     
     model_config = ConfigDict(from_attributes=True)
 
-# ------------------------
-# Combined Response Schemas
-# ------------------------
-
 class PromptWithLatestVersion(PromptRead):
     latest_version: Optional[VersionRead] = None
-
-class PromptWithHistory(PromptRead):
-    versions: List[VersionRead] = Field(default_factory=list)
-
-# ------------------------
-# Promote Schema
-# ------------------------
-
-class PromptPromote(BaseModel):
-    """Request body for promoting a version to production alias."""
-    version_id: int

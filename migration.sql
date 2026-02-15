@@ -1,0 +1,4 @@
+-- Migration script to add soft delete columns
+
+ALTER TABLE prompts ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+ALTER TABLE prompt_versions ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;

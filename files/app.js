@@ -383,7 +383,10 @@ function renderVersionHistory() {
                         v${version.ordinal}
                         ${isProduction ? '<span class="production-badge">PRODUCTION</span>' : ''}
                     </span>
-                    <span class="version-timestamp">${timestamp}</span>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <span class="version-timestamp">${timestamp}</span>
+                        ${!isProduction ? `<button class="btn-icon-small" onclick="deleteVersion(${version.version_id})" title="Delete Version" style="color:var(--danger-primary); background:none; border:none; cursor:pointer;">&times;</button>` : ''}
+                    </div>
                 </div>
                 ${version.change_note ? `<div class="version-change-note">"${escapeHtml(version.change_note)}"</div>` : ''}
                 <div class="version-details">
@@ -912,6 +915,154 @@ document.getElementById('newPromptTitle').addEventListener('keyup', () => {
 document.getElementById('newPromptKey').addEventListener('keyup', () => {
     state.userEditedKey = true;
 });
+
+// -------------------------------------------------------------------
+// Trash Bin & Soft Delete Extensions
+// -------------------------------------------------------------------
+const trashState = {
+    activeTab: 'trash-prompts', // 'trash-prompts' or 'trash-versions'
+    prompts: [],
+    versions: []
+};
+
+const trashElements = {
+    btnOpenTrash: document.getElementById('btnOpenTrash'),
+    modal: document.getElementById('trashBinModal'),
+    btnClose: document.getElementById('btnCloseTrashModal'),
+    btnCloseBottom: document.getElementById('btnCloseTrash'),
+    tabPrompts: document.querySelector('.tab-btn[data-tab="trash-prompts"]'),
+    tabVersions: document.querySelector('.tab-btn[data-tab="trash-versions"]'),
+    list: document.getElementById('trashList')
+};
+
+// Open Trash
+if (trashElements.btnOpenTrash) {
+    trashElements.btnOpenTrash.addEventListener('click', async () => {
+        if (trashElements.modal) trashElements.modal.classList.add('active');
+        await fetchTrashItems();
+    });
+}
+
+// Close Trash
+function closeTrash() {
+    if (trashElements.modal) trashElements.modal.classList.remove('active');
+    // Refresh main lists in case of restore
+    fetchPrompts();
+    if (state.selectedPromptId) {
+        fetchVersionHistory(state.selectedPromptId);
+    }
+}
+if (trashElements.btnClose) trashElements.btnClose.addEventListener('click', closeTrash);
+if (trashElements.btnCloseBottom) trashElements.btnCloseBottom.addEventListener('click', closeTrash);
+
+// Tab Switching
+if (trashElements.tabPrompts) trashElements.tabPrompts.addEventListener('click', () => switchTrashTab('trash-prompts'));
+if (trashElements.tabVersions) trashElements.tabVersions.addEventListener('click', () => switchTrashTab('trash-versions'));
+
+function switchTrashTab(tab) {
+    trashState.activeTab = tab;
+    if (trashElements.tabPrompts) trashElements.tabPrompts.classList.toggle('active', tab === 'trash-prompts');
+    if (trashElements.tabVersions) trashElements.tabVersions.classList.toggle('active', tab === 'trash-versions');
+    renderTrashList();
+}
+
+async function fetchTrashItems() {
+    try {
+        const [pRes, vRes] = await Promise.all([
+            fetch(`${VC}/prompts/trash/all`, { headers: API_HEADERS }),
+            fetch(`${VC}/versions/trash/all`, { headers: API_HEADERS })
+        ]);
+
+        if (pRes.ok) trashState.prompts = await pRes.json();
+        if (vRes.ok) trashState.versions = await vRes.json();
+
+        renderTrashList();
+    } catch (e) {
+        console.error('Error fetching trash:', e);
+        showToast('Failed to load trash items');
+    }
+}
+
+function renderTrashList() {
+    const list = trashElements.list;
+    if (!list) return;
+    list.innerHTML = '';
+
+    const items = trashState.activeTab === 'trash-prompts' ? trashState.prompts : trashState.versions;
+
+    if (items.length === 0) {
+        list.innerHTML = '<div class="empty-state">Trash is empty</div>';
+        return;
+    }
+
+    list.innerHTML = items.map(item => {
+        const isPrompt = trashState.activeTab === 'trash-prompts';
+        const id = isPrompt ? item.prompt_id : item.version_id;
+        const title = isPrompt ? item.key : `v${item.ordinal} (Prompt: ${item.prompt_id})`;
+        const date = item.deleted_at ? new Date(item.deleted_at).toLocaleString() : 'Unknown';
+
+        return `
+            <div class="trash-item">
+                <div class="trash-item-info">
+                    <span class="trash-item-title">${escapeHtml(title)}</span>
+                    <span class="trash-item-meta">Deleted: ${date}</span>
+                </div>
+                <div class="trash-actions">
+                    <button class="btn-restore" onclick="restoreItem('${id}', ${isPrompt})">Restore</button>
+                    <button class="btn-delete-forever" onclick="deleteForever('${id}', ${isPrompt})">Delete Forever</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Global functions for inline onclick handlers
+window.restoreItem = async (id, isPrompt) => {
+    const endpoint = isPrompt ? `prompts/${id}/restore` : `versions/${id}/restore`;
+    try {
+        const res = await fetch(`${VC}/${endpoint}`, { method: 'POST', headers: API_HEADERS });
+        if (!res.ok) throw new Error('Restore failed');
+        showToast('Item restored');
+        await fetchTrashItems(); // Refresh trash list
+
+        // Refresh main view if current prompt affected
+        if (state.selectedPromptId) {
+            await fetchPrompts();
+            await fetchVersionHistory(state.selectedPromptId);
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('Restore failed');
+    }
+};
+
+window.deleteForever = async (id, isPrompt) => {
+    if (!confirm('Are you sure? This cannot be undone.')) return;
+
+    const endpoint = isPrompt ? `prompts/${id}` : `versions/${id}`;
+    try {
+        const res = await fetch(`${VC}/${endpoint}?permanent=true`, { method: 'DELETE', headers: API_HEADERS });
+        if (!res.ok) throw new Error('Delete failed');
+        showToast('Permanently deleted');
+        await fetchTrashItems();
+    } catch (e) {
+        console.error(e);
+        showToast('Delete failed');
+    }
+};
+
+window.deleteVersion = async (versionId) => {
+    if (!confirm('Soft delete this version?')) return;
+    try {
+        const res = await fetch(`${VC}/versions/${versionId}`, { method: 'DELETE', headers: API_HEADERS });
+        if (!res.ok) throw new Error('Delete failed');
+        showToast('Version moved to trash');
+        if (state.selectedPromptId) fetchVersionHistory(state.selectedPromptId);
+    } catch (e) {
+        console.error(e);
+        showToast('Failed to delete version');
+    }
+}
 
 // -------------------------------------------------------------------
 // Init

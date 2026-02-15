@@ -24,6 +24,7 @@ class Prompt(Base):
     created_by = Column(UUID(as_uuid=True), nullable=False)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     versions = relationship("PromptVersion", back_populates="prompt", cascade="all, delete-orphan", foreign_keys="PromptVersion.prompt_id")
     
@@ -55,6 +56,7 @@ class PromptVersion(Base):
     created_by = Column(UUID(as_uuid=True), nullable=False)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     is_latest = Column(Boolean, default=False, nullable=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
     
     # Add version for optimistic locking
     version = Column(Integer, nullable=False, default=1)

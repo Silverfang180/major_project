@@ -3,9 +3,10 @@ import re
 import uuid
 from typing import List, Optional
 from uuid import UUID
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Depends, Query, status
-from sqlalchemy import select, func, desc, update
+from sqlalchemy import select, func, desc, update, delete
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -16,7 +17,7 @@ from version_control.schemas import (
     VersionCreate, VersionRead,
     PromptCreate, PromptRead, PromptWithLatestVersion, PromptPromote
 )
-from db import get_session  # from root db.py
+from db import get_session
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -61,7 +62,6 @@ async def handle_db_errors(func, *args, **kwargs):
 @router.post("/prompts", response_model=PromptRead, status_code=status.HTTP_201_CREATED)
 async def create_prompt(payload: PromptCreate, db: AsyncSession = Depends(get_session)):
     """Create a new prompt."""
-    # Auto-generate key from title if not provided
     if not payload.key:
         payload.key = generate_prompt_key(payload.title)
 
@@ -84,10 +84,13 @@ async def list_prompts(
     offset: int = Query(default=0, ge=0),
     created_by: Optional[UUID] = Query(default=None)
 ):
-    """List prompts with their latest version."""
-    stmt = select(Prompt).options(
-        selectinload(Prompt.versions)
-    ).order_by(desc(Prompt.created_at))
+    """List active prompts (excluding soft-deleted) with their latest version."""
+    stmt = (
+        select(Prompt)
+        .options(selectinload(Prompt.versions))
+        .where(Prompt.deleted_at.is_(None))  # Filter active only
+        .order_by(desc(Prompt.created_at))
+    )
 
     if created_by:
         stmt = stmt.where(Prompt.created_by == created_by)
@@ -98,9 +101,15 @@ async def list_prompts(
 
     prompt_data = []
     for prompt in prompts:
-        latest_version = next((v for v in prompt.versions if v.is_latest), None)
+        # Filter versions to find latest active one
+        # Note: prompt.versions might contain soft-deleted ones if we don't filter load
+        # But for 'is_latest', typically there's only one true latest.
+        # We should check if the latest version itself is deleted?
+        # For now, just finding the one marked is_latest (and presumably not deleted)
+        latest = next((v for v in prompt.versions if v.is_latest and not v.deleted_at), None)
+        
         obj = PromptWithLatestVersion.from_orm(prompt).copy(
-            update={"latest_version": latest_version}
+            update={"latest_version": latest}
         )
         prompt_data.append(obj)
 
@@ -109,11 +118,11 @@ async def list_prompts(
 
 @router.get("/prompts/{prompt_id}", response_model=PromptWithLatestVersion)
 async def get_prompt(prompt_id: UUID, db: AsyncSession = Depends(get_session)):
-    """Get a prompt and its latest version."""
+    """Get a prompt and its active latest version."""
     stmt = (
         select(Prompt)
         .options(selectinload(Prompt.versions))
-        .where(Prompt.prompt_id == prompt_id)
+        .where(Prompt.prompt_id == prompt_id, Prompt.deleted_at.is_(None))
     )
     result = await db.execute(stmt)
     prompt = result.scalar_one_or_none()
@@ -121,22 +130,34 @@ async def get_prompt(prompt_id: UUID, db: AsyncSession = Depends(get_session)):
     if not prompt:
         raise HTTPException(status_code=404, detail=f"Prompt {prompt_id} not found")
 
-    latest_version = next((v for v in prompt.versions if v.is_latest), None)
+    latest_version = next((v for v in prompt.versions if v.is_latest and not v.deleted_at), None)
     return PromptWithLatestVersion.from_orm(prompt).copy(
         update={"latest_version": latest_version}
     )
 
 
 @router.delete("/prompts/{prompt_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_prompt(prompt_id: UUID, db: AsyncSession = Depends(get_session)):
-    """Delete a prompt and all its versions."""
+async def delete_prompt(
+    prompt_id: UUID, 
+    permanent: bool = Query(False),
+    db: AsyncSession = Depends(get_session)
+):
+    """Delete a prompt. Default: Soft delete. Permanent: Hard delete."""
     prompt = await db.get(Prompt, prompt_id)
     if not prompt:
         raise HTTPException(status_code=404, detail=f"Prompt {prompt_id} not found")
 
-    await db.delete(prompt)
+    if permanent:
+        await db.delete(prompt)
+        logger.info(f"Permanently deleted prompt {prompt_id}")
+    else:
+        # Break production version link to avoid circular deps if needed
+        # But actually, soft delete keeps relationships intact usually
+        prompt.deleted_at = func.now()
+        db.add(prompt)
+        logger.info(f"Soft deleted prompt {prompt_id}")
+
     await db.commit()
-    logger.info(f"Deleted prompt {prompt_id}")
     return None
 
 
@@ -149,28 +170,24 @@ async def promote_version(
     """Promote a version to production alias."""
     logger.info(f"Promoting version {payload.version_id} to production for prompt {prompt_id}")
     
-    # Get prompt
     prompt = await db.get(Prompt, prompt_id)
     if not prompt:
         raise HTTPException(status_code=404, detail=f"Prompt {prompt_id} not found")
     
-    # Verify version belongs to this prompt
+    if prompt.deleted_at:
+        raise HTTPException(status_code=404, detail=f"Prompt {prompt_id} is deleted")
+
     version = await db.get(PromptVersion, payload.version_id)
     if not version:
         raise HTTPException(status_code=404, detail=f"Version {payload.version_id} not found")
     if version.prompt_id != prompt_id:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Version {payload.version_id} does not belong to prompt {prompt_id}"
-        )
-    
-    # Capture old production version for audit trail
+        raise HTTPException(status_code=400, detail="Version does not belong to prompt")
+    if version.deleted_at:
+        raise HTTPException(status_code=400, detail="Cannot promote a deleted version")
+
     old_production_version_id = prompt.production_version_id
-    
-    # Update production alias
     prompt.production_version_id = payload.version_id
     
-    # Record alias change in audit trail
     alias_record = AliasHistory(
         prompt_id=prompt_id,
         from_version_id=old_production_version_id,
@@ -186,27 +203,91 @@ async def promote_version(
 
 
 # ------------------------
+# Trash Bin (Prompts)
+# ------------------------
+
+@router.get("/prompts/trash/all", response_model=List[PromptWithLatestVersion])
+async def list_trash_prompts(
+    db: AsyncSession = Depends(get_session),
+    limit: int = Query(default=50, le=100, ge=1),
+    offset: int = Query(default=0, ge=0)
+):
+    """List soft-deleted prompts with auto-cleanup (20 days)."""
+    
+    # Auto-Cleanup
+    try:
+        cutoff = datetime.utcnow() - timedelta(days=20)
+        cleanup_stmt = select(Prompt).where(Prompt.deleted_at < cutoff)
+        result = await db.execute(cleanup_stmt)
+        expired = result.scalars().all()
+        for p in expired:
+            await db.delete(p)
+        if expired:
+            await db.commit()
+            logger.info(f"Auto-cleaned {len(expired)} expired prompts")
+    except Exception as e:
+        logger.error(f"Auto-cleanup failed: {e}")
+
+    stmt = (
+        select(Prompt)
+        .options(selectinload(Prompt.versions))
+        .where(Prompt.deleted_at.is_not(None))
+        .order_by(desc(Prompt.deleted_at))
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await db.execute(stmt)
+    prompts = result.scalars().all()
+
+    data = []
+    for p in prompts:
+        latest = next((v for v in p.versions if v.is_latest), None)
+        obj = PromptWithLatestVersion.from_orm(p).copy(update={"latest_version": latest})
+        data.append(obj)
+    return data
+
+
+@router.post("/prompts/{prompt_id}/restore", response_model=PromptRead)
+async def restore_prompt(prompt_id: UUID, db: AsyncSession = Depends(get_session)):
+    """Restore a soft-deleted prompt."""
+    prompt = await db.get(Prompt, prompt_id)
+    if not prompt:
+        raise HTTPException(status_code=404, detail="Prompt not found")
+    
+    if not prompt.deleted_at:
+        return prompt
+
+    prompt.deleted_at = None
+    db.add(prompt)
+    try:
+        await db.commit()
+        await db.refresh(prompt)
+        return prompt
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="Key conflict on restore")
+
+
+# ------------------------
 # Version Endpoints
 # ------------------------
 
 @router.post("/versions", response_model=VersionRead, status_code=status.HTTP_201_CREATED)
 async def create_version(payload: VersionCreate, db: AsyncSession = Depends(get_session)):
-    """Create a new version of a prompt."""
+    """Create a new version."""
     logger.info(f"Creating version for prompt {payload.prompt_id}")
 
     async def _create_version():
         prompt = await db.get(Prompt, payload.prompt_id)
-        if not prompt:
-            raise HTTPException(status_code=404, detail=f"Prompt {payload.prompt_id} not found")
+        if not prompt or prompt.deleted_at:
+            raise HTTPException(status_code=404, detail=f"Prompt {payload.prompt_id} not found or deleted")
 
-        # Mark old versions as not latest
+        # Mark old as not latest
         await db.execute(
             update(PromptVersion)
             .where(PromptVersion.prompt_id == payload.prompt_id, PromptVersion.is_latest == True)
             .values(is_latest=False)
         )
 
-        # Calculate next ordinal safely
         result = await db.execute(
             select(func.coalesce(func.max(PromptVersion.ordinal), 0))
             .where(PromptVersion.prompt_id == payload.prompt_id)
@@ -232,17 +313,20 @@ async def create_version(payload: VersionCreate, db: AsyncSession = Depends(get_
 
 @router.get("/versions/latest/{prompt_id}", response_model=VersionRead)
 async def get_latest_version(prompt_id: UUID, db: AsyncSession = Depends(get_session)):
-    """Get latest version of a prompt."""
+    """Get latest active version."""
     stmt = (
         select(PromptVersion)
-        .where(PromptVersion.prompt_id == prompt_id, PromptVersion.is_latest == True)
+        .where(
+            PromptVersion.prompt_id == prompt_id, 
+            PromptVersion.is_latest == True,
+            PromptVersion.deleted_at.is_(None)
+        )
     )
     result = await db.execute(stmt)
     version = result.scalar_one_or_none()
 
     if not version:
-        raise HTTPException(status_code=404, detail=f"No versions found for prompt {prompt_id}")
-
+        raise HTTPException(status_code=404, detail=f"No active latest version found for prompt {prompt_id}")
     return version
 
 
@@ -253,25 +337,99 @@ async def get_version_history(
     limit: int = Query(default=50, le=100, ge=1),
     offset: int = Query(default=0, ge=0)
 ):
-    """Get version history of a prompt (paginated)."""
+    """Get active version history."""
     prompt = await db.get(Prompt, prompt_id)
-    if not prompt:
+    if not prompt or prompt.deleted_at:
         raise HTTPException(status_code=404, detail=f"Prompt {prompt_id} not found")
 
     stmt = (
         select(PromptVersion)
-        .where(PromptVersion.prompt_id == prompt_id)
+        .where(PromptVersion.prompt_id == prompt_id, PromptVersion.deleted_at.is_(None))
         .order_by(desc(PromptVersion.ordinal))
         .limit(limit)
         .offset(offset)
     )
     result = await db.execute(stmt)
-    versions = result.scalars().all()
-    return versions
+    return result.scalars().all()
+
+
+@router.delete("/versions/{version_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_version(
+    version_id: int, 
+    permanent: bool = Query(False),
+    db: AsyncSession = Depends(get_session)
+):
+    """Delete a version (Re-introduced with Soft Delete support)."""
+    version = await db.get(PromptVersion, version_id)
+    if not version:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    if permanent:
+        await db.delete(version)
+        logger.info(f"Permanently deleted version {version_id}")
+    else:
+        version.deleted_at = func.now()
+        db.add(version)
+        logger.info(f"Soft deleted version {version_id}")
+
+    await db.commit()
+    return None
 
 
 # ------------------------
-# Alias History Endpoint
+# Trash Bin (Versions)
+# ------------------------
+
+@router.get("/versions/trash/all", response_model=List[VersionRead])
+async def list_trash_versions(
+    db: AsyncSession = Depends(get_session),
+    limit: int = Query(default=50, le=100, ge=1),
+    offset: int = Query(default=0, ge=0)
+):
+    """List soft-deleted versions (Auto-cleanup 20 days)."""
+    try:
+        cutoff = datetime.utcnow() - timedelta(days=20)
+        cleanup_stmt = select(PromptVersion).where(PromptVersion.deleted_at < cutoff)
+        result = await db.execute(cleanup_stmt)
+        expired = result.scalars().all()
+        for v in expired:
+            await db.delete(v)
+        if expired:
+            await db.commit()
+            logger.info(f"Auto-cleaned {len(expired)} versions")
+    except Exception as e:
+        logger.error(f"Version auto-cleanup failed: {e}")
+
+    stmt = (
+        select(PromptVersion)
+        .where(PromptVersion.deleted_at.is_not(None))
+        .order_by(desc(PromptVersion.deleted_at))
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+
+@router.post("/versions/{version_id}/restore", response_model=VersionRead)
+async def restore_version(version_id: int, db: AsyncSession = Depends(get_session)):
+    """Restore a soft-deleted version."""
+    version = await db.get(PromptVersion, version_id)
+    if not version:
+        raise HTTPException(status_code=404, detail="Version not found")
+    
+    if not version.deleted_at:
+        return version
+
+    version.deleted_at = None
+    db.add(version)
+    await db.commit()
+    await db.refresh(version)
+    return version
+
+
+# ------------------------
+# Alias History
 # ------------------------
 
 @router.get("/prompts/{prompt_id}/alias-history")
@@ -281,7 +439,7 @@ async def get_alias_history(
     limit: int = Query(default=50, le=100, ge=1),
     offset: int = Query(default=0, ge=0)
 ):
-    """Get alias (promotion) history for a prompt."""
+    """Get alias (promotion) history."""
     prompt = await db.get(Prompt, prompt_id)
     if not prompt:
         raise HTTPException(status_code=404, detail=f"Prompt {prompt_id} not found")
@@ -307,8 +465,3 @@ async def get_alias_history(
         }
         for r in rows
     ]
-
-
-# DELETE /versions/{version_id} removed for immutability.
-# Versions are append-only. To fix a bad version, create a new one
-# and promote a different version to production.
