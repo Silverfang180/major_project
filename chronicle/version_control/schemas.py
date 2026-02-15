@@ -28,9 +28,20 @@ class PromptRead(PromptBase):
 # Version Schemas
 # ------------------------
 
+
+class ModelSettings(BaseModel):
+    temperature: float = Field(default=1.0, ge=0.0, le=2.0)
+    max_tokens: int = Field(default=8192, ge=1, le=32000)
+    top_p: float = Field(default=0.95, ge=0.0, le=1.0)
+    top_k: Optional[int] = Field(default=None, ge=1)
+    # Usage stats might be nested here or separate, but often comes inside 'usage' key from frontend
+    usage: Optional[Dict[str, Any]] = None 
+
+
 class VersionBase(BaseModel):
     prompt_text: str = Field(min_length=0)
-    model_settings: Dict[str, Any] = Field(default_factory=dict)
+    # Strict Validation: Rejects "temprature" or "Temprature"
+    model_settings: ModelSettings = Field(default_factory=ModelSettings)
     change_note: Optional[str] = None
 
 class VersionCreate(VersionBase):

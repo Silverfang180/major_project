@@ -299,17 +299,8 @@ export const MainLayout: React.FC = () => {
                                 // 2. Refresh active prompt's versions (if one is selected)
                                 if (activePromptId) {
                                     const history = await api.getVersions(activePromptId);
-                                    const mappedVersions = history.map((v: any) => ({
-                                        id: String(v.version_id), // FIX: Convert number to string
-                                        date: new Date(v.created_at).toLocaleDateString(),
-                                        timestamp: v.created_at,
-                                        text: v.prompt_text,
-                                        cost: "$0.0000",
-                                        author: "You",
-                                        status: "Draft" as const, // FIX: Cast to literal type
-                                        accuracy: "N/A"
-                                    }));
-                                    setVersions(mappedVersions);
+                                    // const history = await api.getVersions(activePromptId); // Already declared above
+                                    setVersions(history);
 
                                     // Also update current version if needed
                                     if (updatedList.length > 0) {

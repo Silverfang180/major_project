@@ -9,6 +9,7 @@ services:
       - /app/__pycache__
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/chronicle
+      - ALEMBIC_DATABASE_URL=postgresql://postgres:password@db:5432/chronicle
       - ENVIRONMENT=development
     depends_on:
       db:
