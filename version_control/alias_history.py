@@ -29,7 +29,7 @@ class AliasHistory(Base):
     to_version_id = Column(
         BigInteger,
         ForeignKey("prompt_versions.version_id", ondelete="SET NULL"),
-        nullable=False
+        nullable=True
     )
     changed_by = Column(Text, nullable=True)
     changed_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

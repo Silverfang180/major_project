@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # PromptPilot & Chronicle 🚀
 
 This repository contains the full source code for the "PromptPilot" major project.
@@ -33,12 +33,12 @@ Built with **Python, FastAPI, Gemini, and Groq**.
     ```
 
 Open [http://localhost:5173](http://localhost:5173) to view the app.
-=======
 # Chronicle
 
 A prompt version control system with execution tracking, built on FastAPI and PostgreSQL.
 
 Chronicle lets you create prompts, manage immutable versions with full history, promote versions to production, execute them against an LLM (Groq), and track every run with cost and latency data.
+Record deletions are soft-deleted by default and can be restored from the Trash Bin. Items in the Trash Bin are automatically pruned after 20 days.
 
 All API endpoints require an `X-API-Key` header. The GUI and docs are excluded from authentication.
 
@@ -168,7 +168,7 @@ Chronicle now includes a fully-featured Command Line Interface (CLI) to manage t
 
 ## Key Design Decisions
 
-- **Versions are immutable.** No update or delete on versions. Fix a bad version by creating a new one.
+- **Versions are immutable.** No update or delete on versions. Fix a bad version by creating a new one. All deletions are now soft-deletes with an auto-pruning job to prevent accidental hard deletion of alias history.
 - **Promotion model.** Each prompt has a `production_version_id`. Promoting a version updates this pointer and logs the change to `AliasHistory`.
 - **Pre-insert pending run.** The `Run` row is inserted with `status=pending` before the LLM call, then updated to `success` or `error` in a `try/finally`. No silent failures.
 - **Cost tracking.** Per-execution cost is calculated from token usage and stored on the `Run` row. Unknown models get `cost_usd=None`.
@@ -264,4 +264,3 @@ See [docs/testing-guide.md](docs/testing-guide.md) for the full breakdown of wha
 | [Local Setup Guide](docs/local-setup-guide.md) | Step-by-step Windows local setup (no Docker) |
 | [Phase 1 Status](docs/phase1-implementation-status.md) | Implementation checklist for all Phase-1 components |
 | [Testing Guide](docs/testing-guide.md) | What to test, how to test, and expected results |
->>>>>>> chronicle-tanish

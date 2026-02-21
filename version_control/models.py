@@ -18,23 +18,29 @@ class Prompt(Base):
     __tablename__ = "prompts"
 
     prompt_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    key = Column(Text, unique=True, nullable=False)
+    key = Column(Text, nullable=False)
     title = Column(Text, nullable=False)
     description = Column(Text, nullable=True)
     created_by = Column(UUID(as_uuid=True), nullable=False)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
-    versions = relationship("PromptVersion", back_populates="prompt", cascade="all, delete-orphan", foreign_keys="PromptVersion.prompt_id")
+    versions = relationship("PromptVersion", back_populates="prompt", cascade="all, delete-orphan", foreign_keys="PromptVersion.prompt_id", passive_deletes=True)
     
     # Alias resolution: points to a specific version_id for production
     production_version_id = Column(BigInteger, ForeignKey("prompt_versions.version_id", ondelete="SET NULL"), nullable=True)
-    production_version = relationship("PromptVersion", foreign_keys=[production_version_id])
+    production_version = relationship("PromptVersion", foreign_keys=[production_version_id], passive_deletes=True)
 
     __table_args__ = (
         CheckConstraint("char_length(key) > 0", name="ck_prompts_key_not_empty"),
         CheckConstraint("char_length(title) > 0", name="ck_prompts_title_not_empty"),
-        Index("idx_prompts_key", "key"),
+        Index(
+            "idx_prompts_key_unique_active", 
+            "key", 
+            unique=True, 
+            postgresql_where=Column("deleted_at").is_(None)
+        ),
         Index("idx_prompts_created_by", "created_by"),
     )
 
@@ -54,6 +60,7 @@ class PromptVersion(Base):
     change_note = Column(Text)
     created_by = Column(UUID(as_uuid=True), nullable=False)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
     is_latest = Column(Boolean, default=False, nullable=False)
     
     # Add version for optimistic locking
@@ -62,14 +69,20 @@ class PromptVersion(Base):
     prompt = relationship("Prompt", back_populates="versions", foreign_keys=[prompt_id])
 
     __table_args__ = (
-        UniqueConstraint('prompt_id', 'ordinal', name='ux_prompt_versions_prompt_ordinal'),
         CheckConstraint("char_length(prompt_text) > 0", name="ck_prompt_versions_text_not_empty"),
         CheckConstraint("ordinal > 0", name="ck_prompt_versions_ordinal_positive"),
+        Index(
+            "idx_prompt_versions_prompt_ordinal_unique_active",
+            "prompt_id",
+            "ordinal",
+            unique=True,
+            postgresql_where=Column("deleted_at").is_(None)
+        ),
         Index(
             "idx_prompt_versions_unique_latest", 
             "prompt_id", 
             unique=True,
-            postgresql_where=Column("is_latest") == True
+            postgresql_where=(Column("is_latest") == True) & Column("deleted_at").is_(None)
         ),
         Index("idx_prompt_versions_prompt_id_created_at", "prompt_id", "created_at"),
         Index("idx_prompt_versions_prompt_id_ordinal", "prompt_id", "ordinal"),

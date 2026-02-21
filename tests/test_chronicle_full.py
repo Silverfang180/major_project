@@ -200,12 +200,12 @@ class TestVersionControl:
             ordinals = [v["ordinal"] for v in r.json()]
             assert ordinals == sorted(ordinals, reverse=True)
 
-    async def test_delete_version_blocked(self):
+    async def test_soft_delete_version(self):
         async with AsyncClient(transport=_transport(), base_url="http://testserver", headers=AUTH_HEADERS) as c:
             p = await _create_prompt(c)
             v = await _create_version(c, p["prompt_id"])
             r = await c.delete(f"{VC}/versions/{v['version_id']}")
-            assert r.status_code in (404, 405)
+            assert r.status_code == 204
 
 
 # ===================================================================

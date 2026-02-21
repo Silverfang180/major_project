@@ -87,7 +87,7 @@ async def list_prompts(
     """List prompts with their latest version."""
     stmt = select(Prompt).options(
         selectinload(Prompt.versions)
-    ).order_by(desc(Prompt.created_at))
+    ).where(Prompt.deleted_at.is_(None)).order_by(desc(Prompt.created_at))
 
     if created_by:
         stmt = stmt.where(Prompt.created_by == created_by)
@@ -113,7 +113,7 @@ async def get_prompt(prompt_id: UUID, db: AsyncSession = Depends(get_session)):
     stmt = (
         select(Prompt)
         .options(selectinload(Prompt.versions))
-        .where(Prompt.prompt_id == prompt_id)
+        .where(Prompt.prompt_id == prompt_id, Prompt.deleted_at.is_(None))
     )
     result = await db.execute(stmt)
     prompt = result.scalar_one_or_none()
@@ -128,15 +128,39 @@ async def get_prompt(prompt_id: UUID, db: AsyncSession = Depends(get_session)):
 
 
 @router.delete("/prompts/{prompt_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_prompt(prompt_id: UUID, db: AsyncSession = Depends(get_session)):
-    """Delete a prompt and all its versions."""
+async def delete_prompt(prompt_id: UUID, permanent: bool = False, db: AsyncSession = Depends(get_session)):
+    """Delete a prompt. If permanent is False, soft delete the prompt and all versions."""
     prompt = await db.get(Prompt, prompt_id)
     if not prompt:
         raise HTTPException(status_code=404, detail=f"Prompt {prompt_id} not found")
 
-    await db.delete(prompt)
+    if not permanent:
+        prompt.deleted_at = func.now()
+        await db.execute(
+            update(PromptVersion)
+            .where(PromptVersion.prompt_id == prompt_id)
+            .values(deleted_at=func.now())
+        )
+        await db.commit()
+        logger.info(f"Soft deleted prompt {prompt_id}")
+        return None
+
+    # Hard Delete path
+    # 1. Break pointer
+    prompt.production_version_id = None
+    db.add(prompt)
+    await db.flush()
+
+    from sqlalchemy import delete
+    # 2. Evict relationship state
+    db.expunge(prompt)
+
+    # 3. Pure SQL bulk delete
+    await db.execute(delete(PromptVersion).where(PromptVersion.prompt_id == prompt_id))
+    await db.execute(delete(Prompt).where(Prompt.prompt_id == prompt_id))
+
     await db.commit()
-    logger.info(f"Deleted prompt {prompt_id}")
+    logger.info(f"Deleted prompt {prompt_id} permanently")
     return None
 
 
@@ -260,7 +284,7 @@ async def get_version_history(
 
     stmt = (
         select(PromptVersion)
-        .where(PromptVersion.prompt_id == prompt_id)
+        .where(PromptVersion.prompt_id == prompt_id, PromptVersion.deleted_at.is_(None))
         .order_by(desc(PromptVersion.ordinal))
         .limit(limit)
         .offset(offset)
@@ -309,6 +333,86 @@ async def get_alias_history(
     ]
 
 
-# DELETE /versions/{version_id} removed for immutability.
-# Versions are append-only. To fix a bad version, create a new one
-# and promote a different version to production.
+# ------------------------
+# Trash & Restore Endpoints
+# ------------------------
+
+@router.delete("/versions/{version_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_version(version_id: int, permanent: bool = False, db: AsyncSession = Depends(get_session)):
+    """Delete a specific version."""
+    version = await db.get(PromptVersion, version_id)
+    if not version:
+        raise HTTPException(status_code=404, detail=f"Version {version_id} not found")
+
+    if not permanent:
+        version.deleted_at = func.now()
+        await db.commit()
+        return None
+
+    # Hard Delete path
+    from sqlalchemy import delete
+    await db.execute(delete(PromptVersion).where(PromptVersion.version_id == version_id))
+    await db.commit()
+    return None
+
+
+@router.post("/prompts/{prompt_id}/restore", response_model=PromptRead)
+async def restore_prompt(prompt_id: UUID, db: AsyncSession = Depends(get_session)):
+    """Restore a soft-deleted prompt and its versions."""
+    prompt = await db.get(Prompt, prompt_id)
+    if not prompt:
+        raise HTTPException(status_code=404, detail=f"Prompt {prompt_id} not found")
+
+    async def _restore():
+        prompt.deleted_at = None
+        await db.execute(
+            update(PromptVersion)
+            .where(PromptVersion.prompt_id == prompt_id)
+            .values(deleted_at=None)
+        )
+        await db.commit()
+        await db.refresh(prompt)
+        return prompt
+
+    return await handle_db_errors(_restore)
+
+
+@router.post("/versions/{version_id}/restore", response_model=VersionRead)
+async def restore_version(version_id: int, db: AsyncSession = Depends(get_session)):
+    """Restore a soft-deleted version."""
+    version = await db.get(PromptVersion, version_id)
+    if not version:
+        raise HTTPException(status_code=404, detail=f"Version {version_id} not found")
+
+    async def _restore():
+        version.deleted_at = None
+        await db.commit()
+        await db.refresh(version)
+        return version
+
+    return await handle_db_errors(_restore)
+
+
+@router.get("/prompts/trash/all", response_model=List[PromptRead])
+async def list_trashed_prompts(db: AsyncSession = Depends(get_session)):
+    """List all soft-deleted prompts. Auto-prunes items older than 30 days."""
+    from datetime import datetime, timedelta
+    from sqlalchemy import delete
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    
+    # Pure SQL DELETE is idempotent and thread-safe implicitly by the DB engine
+    await db.execute(delete(PromptVersion).where(PromptVersion.deleted_at < thirty_days_ago))
+    await db.execute(delete(Prompt).where(Prompt.deleted_at < thirty_days_ago))
+    await db.commit()
+
+    stmt = select(Prompt).where(Prompt.deleted_at.is_not(None)).order_by(desc(Prompt.deleted_at))
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+
+@router.get("/versions/trash/all", response_model=List[VersionRead])
+async def list_trashed_versions(db: AsyncSession = Depends(get_session)):
+    """List all soft-deleted versions."""
+    stmt = select(PromptVersion).where(PromptVersion.deleted_at.is_not(None)).order_by(desc(PromptVersion.deleted_at))
+    result = await db.execute(stmt)
+    return result.scalars().all()

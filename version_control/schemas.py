@@ -21,6 +21,7 @@ class PromptRead(PromptBase):
     created_by: UUID
     created_at: datetime
     updated_at: Optional[datetime] = None
+    deleted_at: Optional[datetime] = None
     production_version_id: Optional[int] = None
     
     model_config = ConfigDict(from_attributes=True)
@@ -44,6 +45,7 @@ class VersionRead(VersionBase):
     ordinal: int
     created_by: UUID
     created_at: datetime
+    deleted_at: Optional[datetime] = None
     is_latest: bool
     
     model_config = ConfigDict(from_attributes=True)

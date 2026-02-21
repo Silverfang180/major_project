@@ -80,8 +80,8 @@ export const TrashBin: React.FC<TrashBinProps> = ({ onClose, onRestore }) => {
             } else if (item.type === 'version' && item.version_id) {
                 await api.restoreVersion(item.version_id);
             }
-            // Remove from list
-            setItems(prev => prev.filter(i => i.id !== item.id));
+            // Remove from list matching both id and type
+            setItems(prev => prev.filter(i => !(i.id === item.id && i.type === item.type)));
             onRestore();
         } catch (e: any) {
             alert(e.message || "Failed to restore");
@@ -89,7 +89,7 @@ export const TrashBin: React.FC<TrashBinProps> = ({ onClose, onRestore }) => {
     };
 
     const handleDeleteForever = async (item: TrashItem) => {
-        if (!confirm("Are you sure? This cannot be undone.")) return;
+        if (!confirm(`Are you sure you want to permanently delete this ${item.type}? This cannot be undone.`)) return;
 
         try {
             if (item.type === 'prompt' && item.prompt_id) {
@@ -97,12 +97,15 @@ export const TrashBin: React.FC<TrashBinProps> = ({ onClose, onRestore }) => {
             } else if (item.type === 'version' && item.version_id) {
                 await api.deleteVersion(item.version_id, true);
             }
-            // Remove from list
-            setItems(prev => prev.filter(i => i.id !== item.id));
+            // Remove from list matching both id and type
+            setItems(prev => prev.filter(i => !(i.id === item.id && i.type === item.type)));
+            // Optionally call onRestore if you want to refresh the main screen, but usually not needed for hard delete unless TrashBin affects global counts
+            onRestore();
         } catch (e: any) {
-            alert(e.message || "Failed to delete");
+            alert(e.message || "Failed to delete permanently");
         }
     };
+
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -155,11 +158,10 @@ export const TrashBin: React.FC<TrashBinProps> = ({ onClose, onRestore }) => {
                                 </button>
                                 <button
                                     onClick={() => handleDeleteForever(item)}
-                                    className="px-3 py-1.5 text-xs font-medium bg-red-500/10 text-red-600 hover:bg-red-500/20 rounded-md flex items-center gap-1.5 transition-colors"
+                                    className="p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive rounded-md transition-colors"
                                     title="Delete Forever"
                                 >
-                                    <X className="w-3.5 h-3.5" />
-                                    Delete Forever
+                                    <Trash2 className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>
