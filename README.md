@@ -104,6 +104,32 @@ Matte is the default. Selection persists to `localStorage` under key `chronicle-
 
 ---
 
+## Introduced CLI Tool
+
+Chronicle now includes a fully-featured Command Line Interface (CLI) to manage the prompt execution environment directly from your terminal.
+
+![Chronicle CLI execution environment](init.png)
+
+### Key Capabilities
+
+- **`init`**: Configure backend connections to your Chronicle instance.
+- **`use`**: Switch between different environments easily.
+- **`list`**: List all available prompts natively.
+- **`versions`**: Show the version history for specific prompts.
+- **`execute`**: Run a prompt with injected variables straight from the terminal.
+
+---
+
+## What We've Achieved
+
+- **Version Control System**: Immutable prompt versions with full history, safe experimentation, and promotion workflows.
+- **Execution Tracking**: Every LLM execution is recorded with cost and latency data natively linked to PromptOps traces.
+- **GUI Interface**: A robust 3-column layout web interface featuring theme support and live cost/latency estimation.
+- **CLI Tooling**: A dynamic terminal interface for developers to interact with Chronicle's API securely without context switching.
+- **Reliable Backend Platform**: FastAPI and PostgreSQL powering a fast, strongly typed, and reliable PromptOps operational lifecycle.
+
+---
+
 ## Key Design Decisions
 
 - **Versions are immutable.** No update or delete on versions. Fix a bad version by creating a new one.

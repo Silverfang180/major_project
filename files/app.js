@@ -1,11 +1,14 @@
-// -------------------------------------------------------------------
-// Chronicle — app.js
-// -------------------------------------------------------------------
-const VC = 'http://localhost:8000/api/v1/version-control';
-const EXEC = 'http://localhost:8000/api/v1';
-const API_HEADERS = { 'X-API-Key': 'chronicle-dev-key' };
+﻿// Chronicle â€” app_new.js â€” Production UI Redesign
+const html = htm.bind(React.createElement);
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+const { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+    ResponsiveContainer, AreaChart, Area, ReferenceLine } = Recharts;
 
-// Client-side pricing mirror for "Est. Cost" display
+// Constants
+const VC = '/api/v1/version-control';
+const EXEC = '/api/v1';
+const API_HEADERS = { 'X-API-Key': 'chronicle-dev-key' };
+const JSON_HEADERS = { 'X-API-Key': 'chronicle-dev-key', 'Content-Type': 'application/json' };
 const MODEL_PRICING = {
     "llama-3.3-70b-versatile": { input_cost_per_1k: 0.00059, output_cost_per_1k: 0.00079 },
     "llama-3.1-8b-instant": { input_cost_per_1k: 0.00005, output_cost_per_1k: 0.00008 },
@@ -13,916 +16,630 @@ const MODEL_PRICING = {
     "mixtral-8x7b-32768": { input_cost_per_1k: 0.00024, output_cost_per_1k: 0.00024 },
     "gemma2-9b-it": { input_cost_per_1k: 0.00020, output_cost_per_1k: 0.00020 },
 };
-
-const state = {
-    prompts: [],
-    selectedPromptId: null,
-    selectedPrompt: null,
-    versionHistory: [],
-    aliasHistory: [],
-    runHistory: [],       // client-side session runs
-    confirmCallback: null,
-    userEditedKey: false
+const MODEL_CONTEXT_WINDOWS = {
+    "llama-3.3-70b-versatile": 128000, "llama3-70b-8192": 8192,
+    "llama-3.1-8b-instant": 128000, "mixtral-8x7b-32768": 32768, "gemma2-9b-it": 8192
+};
+const CHART_THEME = {
+    grid: 'rgba(255,220,180,0.06)', axis: '#6b5d4f', primary: '#d97706',
+    secondary: '#92400e', tooltip_bg: '#252117', tooltip_border: 'rgba(255,220,180,0.12)', text: '#a89880'
 };
 
-// -------------------------------------------------------------------
-// DOM elements
-// -------------------------------------------------------------------
-const elements = {
-    healthDot: document.getElementById('healthDot'),
-    healthText: document.getElementById('healthText'),
-    promptList: document.getElementById('promptList'),
-    welcomeScreen: document.getElementById('welcomeScreen'),
-    loadingState: document.getElementById('loadingState'),
-    promptView: document.getElementById('promptView'),
-    timelinePanel: document.getElementById('timelinePanel'),
-    promptKey: document.getElementById('promptKey'),
-    promptTitle: document.getElementById('promptTitle'),
-    promptDescription: document.getElementById('promptDescription'),
-    promptText: document.getElementById('promptText'),
-    modelSettings: document.getElementById('modelSettings'),
-    changeNote: document.getElementById('changeNote'),
-    versionCount: document.getElementById('versionCount'),
-    versionList: document.getElementById('versionList'),
-    btnCreatePrompt: document.getElementById('btnCreatePrompt'),
-    btnSaveVersion: document.getElementById('btnSaveVersion'),
-    btnDeletePrompt: document.getElementById('btnDeletePrompt'),
-    createPromptModal: document.getElementById('createPromptModal'),
-    confirmModal: document.getElementById('confirmModal'),
-    toast: document.getElementById('toast'),
-    toastMessage: document.getElementById('toastMessage'),
-    themeSelector: document.getElementById('themeSelector'),
-    // Execution
-    executionSection: document.getElementById('executionSection'),
-    variableInputs: document.getElementById('variableInputs'),
-    btnExecute: document.getElementById('btnExecute'),
-    btnEstimateCost: document.getElementById('btnEstimateCost'),
-    execModel: document.getElementById('execModel'),
-    runResult: document.getElementById('runResult'),
-    costEstimatePanel: document.getElementById('costEstimatePanel'),
-    tokenEstimateBar: document.getElementById('tokenEstimateBar'),
-    runIdValue: document.getElementById('runIdValue'),
-    runStatusValue: document.getElementById('runStatusValue'),
-    runLatencyValue: document.getElementById('runLatencyValue'),
-    runCostValue: document.getElementById('runCostValue'),
-    runTokensValue: document.getElementById('runTokensValue'),
-    runResponseValue: document.getElementById('runResponseValue'),
-    runResponseBlock: document.getElementById('runResponseBlock'),
-    runErrorBlock: document.getElementById('runErrorBlock'),
-    runErrorValue: document.getElementById('runErrorValue'),
-    runStatus: document.getElementById('runStatus'),
-    runHistorySection: document.getElementById('runHistorySection'),
-    runHistoryList: document.getElementById('runHistoryList'),
-    // Alias History
-    aliasHistorySection: document.getElementById('aliasHistorySection'),
-    aliasHistoryList: document.getElementById('aliasHistoryList'),
-};
-
-// -------------------------------------------------------------------
 // Utilities
-// -------------------------------------------------------------------
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-function showToast(message) {
-    elements.toastMessage.textContent = message;
-    elements.toast.classList.add('show');
-    setTimeout(() => { elements.toast.classList.remove('show'); }, 3000);
-}
-
 function extractPlaceholders(text) {
-    const matches = text.match(/\{\{(\w+)\}\}/g);
-    if (!matches) return [];
-    return [...new Set(matches.map(m => m.replace(/\{\{|\}\}/g, '')))];
+    const m = text.match(/\{\{(\w+)\}\}/g);
+    return m ? [...new Set(m.map(x => x.replace(/\{\{|\}\}/g, '')))] : [];
 }
-
-function calculateCostClient(model, promptTokens, completionTokens) {
-    const pricing = MODEL_PRICING[model];
-    if (!pricing) return null;
-    return (promptTokens / 1000 * pricing.input_cost_per_1k) +
-        (completionTokens / 1000 * pricing.output_cost_per_1k);
-}
-
 function generateKey(title) {
-    const slug = title.toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '')
-        .substring(0, 50);
-    const suffix = Math.random().toString(36).substring(2, 8);
-    return slug ? `${slug}-${suffix}` : suffix;
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 50);
+    const sfx = Math.random().toString(36).substring(2, 8);
+    return slug ? slug + '-' + sfx : sfx;
 }
-
-function formatCost(cost) {
-    if (cost === null || cost === undefined) return 'N/A';
-    return '$' + cost.toFixed(6);
-}
-
-function estimateTokens(text) {
-    return Math.ceil(text.length / 4);
-}
-
-function estimateCost(promptText, modelSettingsJson) {
+function formatCost(c) { return c == null ? 'N/A' : '$' + parseFloat(c).toFixed(6); }
+function estimateTokens(t) { return Math.ceil(t.length / 4); }
+function estimateCost(promptText, msJson) {
     const tokens = estimateTokens(promptText);
     let model = null;
-    try {
-        const settings = JSON.parse(modelSettingsJson);
-        model = settings.model || null;
-    } catch (e) {
-        model = null;
-    }
-    const pricing = MODEL_PRICING[model];
-    if (!pricing) return { tokens, cost: null, model };
-    const cost = (tokens / 1000) * pricing.input_cost_per_1k;
-    return { tokens, cost, model };
+    try { model = JSON.parse(msJson).model || null; } catch (e) { }
+    const p = MODEL_PRICING[model];
+    if (!p) return { tokens, cost: null, model };
+    return { tokens, cost: (tokens / 1000) * p.input_cost_per_1k, model };
+}
+function getVersionOpacity(index) {
+    if (index === 0) return 1;
+    if (index === 1) return 0.85;
+    if (index === 2) return 0.7;
+    return 0.55;
+}
+function extractModelName(settings) {
+    if (!settings) return null;
+    return settings.model || null;
 }
 
-function updateTokenEstimateBar() {
-    const text = elements.promptText.value;
-    if (!text) {
-        elements.tokenEstimateBar.textContent = '';
-        return;
-    }
-    const estimate = estimateCost(text, elements.modelSettings.value);
-    if (estimate.cost !== null) {
-        elements.tokenEstimateBar.textContent = `~${estimate.tokens} tokens \u00b7 Est. $${estimate.cost.toFixed(6)} per call \u00b7 ${estimate.model}`;
-    } else {
-        elements.tokenEstimateBar.textContent = `~${estimate.tokens} tokens \u00b7 Model not set`;
-    }
-}
+// --- Reusable UI Components ---
 
-// -------------------------------------------------------------------
-// Health
-// -------------------------------------------------------------------
-async function checkHealth() {
-    try {
-        const response = await fetch(`${VC}/prompts`, { headers: API_HEADERS });
-        if (response.ok) {
-            elements.healthDot.classList.add('online');
-            elements.healthDot.classList.remove('offline');
-            elements.healthText.textContent = 'Online';
-            return true;
+function AnimatedNumber({ value, prefix, suffix, decimals }) {
+    prefix = prefix || ''; suffix = suffix || ''; decimals = decimals || 0;
+    const [display, setDisplay] = useState(0);
+    useEffect(() => {
+        const start = Date.now(), dur = 600, end = parseFloat(value) || 0;
+        function tick() {
+            const p = Math.min((Date.now() - start) / dur, 1);
+            const eased = 1 - Math.pow(1 - p, 3);
+            setDisplay(end * eased);
+            if (p < 1) requestAnimationFrame(tick);
         }
-    } catch (error) {
-        console.error('Health check failed:', error);
-    }
-    elements.healthDot.classList.add('offline');
-    elements.healthDot.classList.remove('online');
-    elements.healthText.textContent = 'Offline';
-    return false;
+        requestAnimationFrame(tick);
+    }, [value]);
+    return html`<span class="animated-number">${prefix}${display.toFixed(decimals)}${suffix}</span>`;
 }
 
-// -------------------------------------------------------------------
-// Prompts
-// -------------------------------------------------------------------
-async function fetchPrompts() {
-    try {
-        const response = await fetch(`${VC}/prompts`, { headers: API_HEADERS });
-        if (!response.ok) throw new Error(`Failed to fetch prompts: ${response.status}`);
-        state.prompts = await response.json();
-        renderPromptList();
-    } catch (error) {
-        console.error('Error fetching prompts:', error);
-        showToast('Failed to load prompts');
-    }
+function Skeleton({ width, height, style }) {
+    return html`<div class="skeleton" style=${{ width: width || '100%', height: height || '14px', ...style }}></div>`;
 }
 
-function renderPromptList() {
-    if (state.prompts.length === 0) {
-        elements.promptList.innerHTML = '<div class="empty-state">No prompts yet</div>';
-        return;
-    }
+function EmptyState({ icon, title, sub }) {
+    return html`<div class="empty-state">
+        <div class="empty-state-icon">${icon}</div>
+        <div class="empty-state-title">${title}</div>
+        <div class="empty-state-sub">${sub}</div>
+    </div>`;
+}
 
-    elements.promptList.innerHTML = state.prompts.map(prompt => `
-        <div class="prompt-item ${state.selectedPromptId === prompt.prompt_id ? 'active' : ''}" data-id="${prompt.prompt_id}">
-            <div class="prompt-item-key">${escapeHtml(prompt.key)}</div>
-            <div class="prompt-item-title">${escapeHtml(prompt.title)}</div>
-            <div class="prompt-item-description">${escapeHtml(prompt.description || '')}</div>
+function Toast({ message, visible }) {
+    return html`<div class="toast ${visible ? 'show' : ''}" id="toast"><span>${message}</span></div>`;
+}
+
+function ThemeSelector() {
+    const [active, setActive] = useState(localStorage.getItem('chronicle-theme') || 'matte');
+    function set(t) { document.documentElement.setAttribute('data-theme', t); localStorage.setItem('chronicle-theme', t); setActive(t); }
+    return html`<div class="theme-selector">
+        <button class="theme-option ${active === 'dark' ? 'active' : ''}" onClick=${() => set('dark')}>Dark</button>
+        <button class="theme-option ${active === 'light' ? 'active' : ''}" onClick=${() => set('light')}>Light</button>
+        <button class="theme-option ${active === 'matte' ? 'active' : ''}" onClick=${() => set('matte')}>Matte</button>
+    </div>`;
+}
+
+function ContextWindowBar({ tokens, model }) {
+    const max = MODEL_CONTEXT_WINDOWS[model] || 8192;
+    const pct = Math.min((tokens / max) * 100, 100);
+    const color = pct > 80 ? '#dc2626' : pct > 50 ? '#d97706' : '#16a34a';
+    return html`<div class="context-bar-wrapper">
+        <div class="context-bar-track">
+            <div class="context-bar-fill" style=${{ width: pct + '%', background: color }}></div>
         </div>
-    `).join('');
-
-    document.querySelectorAll('.prompt-item').forEach(item => {
-        item.addEventListener('click', () => selectPrompt(item.dataset.id));
-    });
+        <span class="context-bar-label">${tokens} / ${max.toLocaleString()} tokens</span>
+    </div>`;
 }
 
-async function selectPrompt(promptId) {
-    state.selectedPromptId = promptId;
-    state.runHistory = [];
-    renderPromptList();
-
-    // Clear cost estimate panel from previous prompt
-    elements.costEstimatePanel.style.display = 'none';
-
-    try {
-        await fetchPromptDetails(promptId);
-        await fetchVersionHistory(promptId);
-        await fetchAliasHistory(promptId);
-        showPromptView();
-        renderExecutionPanel();
-        renderRunHistory();
-    } catch (error) {
-        console.error('Error selecting prompt:', error);
-        showToast('Failed to load prompt details');
-    }
+function TokenEstimateBar({ promptText, modelSettingsJson }) {
+    if (!promptText) return null;
+    const est = estimateCost(promptText, modelSettingsJson);
+    return html`<div class="token-estimate-bar" style=${{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>
+        <div>${est.cost !== null ? '~' + est.tokens + ' tokens \u00b7 Est. $' + est.cost.toFixed(6) + ' \u00b7 ' + est.model : '~' + est.tokens + ' tokens \u00b7 Model not set'}</div>
+        ${est.model && html`<${ContextWindowBar} tokens=${est.tokens} model=${est.model} />`}
+    </div>`;
 }
 
-async function fetchPromptDetails(promptId) {
-    const response = await fetch(`${VC}/prompts/${promptId}`, { headers: API_HEADERS });
-    if (!response.ok) throw new Error(`Failed to fetch prompt details: ${response.status}`);
-    state.selectedPrompt = await response.json();
-    renderPromptDetails();
+// --- Modals ---
+
+function CreatePromptModal({ visible, onClose, onCreate }) {
+    const [title, setTitle] = useState(''); const [key, setKey] = useState('');
+    const [desc, setDesc] = useState(''); const [edited, setEdited] = useState(false);
+    useEffect(() => { if (visible) { setTitle(''); setKey(''); setDesc(''); setEdited(false); } }, [visible]);
+    if (!visible) return null;
+    function onTitle(e) { const v = e.target.value; setTitle(v); if (!edited) setKey(v ? generateKey(v) : ''); }
+    async function go() { if (!title.trim()) return; await onCreate(key.trim(), title.trim(), desc.trim()); onClose(); }
+    return html`<div class="modal active" onClick=${e => e.target === e.currentTarget && onClose()}>
+        <div class="modal-content" style=${{ borderRadius: 'var(--radius-lg)' }}>
+            <div class="modal-header"><h3 style=${{ fontFamily: "'Syne',sans-serif" }}>Create Prompt</h3><button class="btn-close" onClick=${onClose}>\u00d7</button></div>
+            <div class="modal-body">
+                <div class="form-group"><label style=${{ fontFamily: "'Inter',sans-serif", fontSize: '13px' }}>Key</label>
+                    <input type="text" class="modal-input" value=${key} onInput=${e => { setKey(e.target.value); setEdited(true); }} placeholder="Auto-generated from title" style=${{ fontFamily: "'JetBrains Mono',monospace", fontSize: '13px' }} /></div>
+                <div class="form-group"><label style=${{ fontFamily: "'Inter',sans-serif", fontSize: '13px' }}>Title</label>
+                    <input type="text" class="modal-input" value=${title} onInput=${onTitle} placeholder="My Prompt Title" /></div>
+                <div class="form-group"><label style=${{ fontFamily: "'Inter',sans-serif", fontSize: '13px' }}>Description</label>
+                    <textarea class="modal-textarea" rows="3" value=${desc} onInput=${e => setDesc(e.target.value)} placeholder="Describe the purpose..."></textarea></div>
+            </div>
+            <div class="modal-footer"><button class="btn-secondary" onClick=${onClose}>Cancel</button><button class="btn-primary" onClick=${go}>Create</button></div>
+        </div>
+    </div>`;
 }
 
-function renderPromptDetails() {
-    if (!state.selectedPrompt) return;
-
-    elements.promptKey.textContent = state.selectedPrompt.key;
-    elements.promptTitle.textContent = state.selectedPrompt.title;
-    elements.promptDescription.textContent = state.selectedPrompt.description || '';
-
-    const latestVersion = state.selectedPrompt.latest_version;
-    if (latestVersion) {
-        elements.promptText.value = latestVersion.prompt_text || '';
-        elements.modelSettings.value = latestVersion.model_settings
-            ? JSON.stringify(latestVersion.model_settings, null, 2) : '';
-    } else {
-        elements.promptText.value = '';
-        elements.modelSettings.value = '';
-    }
-    elements.changeNote.value = '';
-    updateTokenEstimateBar();
+function ConfirmModal({ visible, title, message, onConfirm, onClose }) {
+    if (!visible) return null;
+    return html`<div class="modal active" onClick=${e => e.target === e.currentTarget && onClose()}>
+        <div class="modal-content modal-small" style=${{ borderRadius: 'var(--radius-lg)' }}>
+            <div class="modal-header danger"><h3 style=${{ fontFamily: "'Syne',sans-serif" }}>${title}</h3><button class="btn-close" onClick=${onClose}>\u00d7</button></div>
+            <div class="modal-body"><p>${message}</p></div>
+            <div class="modal-footer"><button class="btn-secondary" onClick=${onClose}>Cancel</button><button class="btn-danger" onClick=${onConfirm}>Delete Forever</button></div>
+        </div>
+    </div>`;
 }
 
-async function createPrompt(key, title, description) {
-    try {
-        const createdBy = crypto.randomUUID();
-        const body = key
-            ? { key, title, description, created_by: createdBy }
-            : { title, description, created_by: createdBy };
-        const response = await fetch(`${VC}/prompts`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...API_HEADERS },
-            body: JSON.stringify(body)
-        });
+// --- Charts ---
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || `Failed: ${response.status}`);
+function CostChart({ runHistory }) {
+    const data = runHistory.filter(r => r.status === 'success').map(r => ({ run: '#' + r.run_id, cost: parseFloat(r.cost_usd) || 0 }));
+    if (!data.length) return html`<${EmptyState} icon="\u25C8" title="No cost data" sub="Execute a prompt to see cost trend" />`;
+    return html`<${ResponsiveContainer} width="100%" height=${200}>
+        <${LineChart} data=${data} margin=${{ top: 10, right: 20, left: 0, bottom: 0 }}>
+            <${CartesianGrid} strokeDasharray="3 3" stroke=${CHART_THEME.grid} />
+            <${XAxis} dataKey="run" tick=${{ fill: CHART_THEME.text, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+            <${YAxis} tick=${{ fill: CHART_THEME.text, fontSize: 11, fontFamily: 'JetBrains Mono' }} tickFormatter=${v => '$' + v.toFixed(6)} />
+            <${Tooltip} contentStyle=${{ background: CHART_THEME.tooltip_bg, border: '1px solid ' + CHART_THEME.tooltip_border, borderRadius: '8px', fontFamily: 'JetBrains Mono', fontSize: '12px' }} labelStyle=${{ color: '#f5f0e8' }} />
+            <${Line} type="monotone" dataKey="cost" stroke=${CHART_THEME.primary} strokeWidth=${2} dot=${{ fill: CHART_THEME.primary, r: 3 }} activeDot=${{ r: 5 }} />
+        </${LineChart}>
+    </${ResponsiveContainer}>`;
+}
+
+function TokenChart({ runHistory }) {
+    const data = runHistory.filter(r => r.tokens_prompt && r.tokens_completion).map(r => ({ run: '#' + r.run_id, prompt: r.tokens_prompt, completion: r.tokens_completion }));
+    if (!data.length) return html`<${EmptyState} icon="\u25C8" title="No token data" sub="Token breakdown appears after runs" />`;
+    return html`<${ResponsiveContainer} width="100%" height=${200}>
+        <${BarChart} data=${data} margin=${{ top: 10, right: 20, left: 0, bottom: 0 }}>
+            <${CartesianGrid} strokeDasharray="3 3" stroke=${CHART_THEME.grid} />
+            <${XAxis} dataKey="run" tick=${{ fill: CHART_THEME.text, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+            <${YAxis} tick=${{ fill: CHART_THEME.text, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+            <${Tooltip} contentStyle=${{ background: CHART_THEME.tooltip_bg, border: '1px solid ' + CHART_THEME.tooltip_border, borderRadius: '8px' }} labelStyle=${{ color: '#f5f0e8' }} />
+            <${Legend} />
+            <${Bar} dataKey="prompt" name="Prompt Tokens" fill=${CHART_THEME.primary} />
+            <${Bar} dataKey="completion" name="Completion Tokens" fill=${CHART_THEME.secondary} />
+        </${BarChart}>
+    </${ResponsiveContainer}>`;
+}
+
+function LatencyChart({ runHistory }) {
+    const data = runHistory.filter(r => r.latency_ms != null).map(r => ({ run: '#' + r.run_id, latency: r.latency_ms }));
+    if (!data.length) return html`<${EmptyState} icon="\u25C8" title="No latency data" sub="Latency trend appears after runs" />`;
+    const mean = Math.round(data.reduce((s, r) => s + r.latency, 0) / data.length);
+    return html`<${ResponsiveContainer} width="100%" height=${200}>
+        <${AreaChart} data=${data} margin=${{ top: 10, right: 20, left: 0, bottom: 0 }}>
+            <defs><linearGradient id="latGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#d97706" stopOpacity="0.3"/><stop offset="95%" stopColor="#d97706" stopOpacity="0"/>
+            </linearGradient></defs>
+            <${CartesianGrid} strokeDasharray="3 3" stroke=${CHART_THEME.grid} />
+            <${XAxis} dataKey="run" tick=${{ fill: CHART_THEME.text, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+            <${YAxis} tick=${{ fill: CHART_THEME.text, fontSize: 11, fontFamily: 'JetBrains Mono' }} tickFormatter=${v => v + 'ms'} />
+            <${Tooltip} contentStyle=${{ background: CHART_THEME.tooltip_bg, border: '1px solid ' + CHART_THEME.tooltip_border, borderRadius: '8px' }} labelStyle=${{ color: '#f5f0e8' }} />
+            <${ReferenceLine} y=${mean} stroke="#a89880" strokeDasharray="5 5" label=${{ value: 'avg ' + mean + 'ms', fill: '#a89880', fontSize: 11 }} />
+            <${Area} type="monotone" dataKey="latency" stroke="#d97706" strokeWidth=${2} fill="url(#latGrad)" />
+        </${AreaChart}>
+    </${ResponsiveContainer}>`;
+}
+
+function RunCharts({ runHistory }) {
+    if (!runHistory.length) return null;
+    return html`<div class="charts-section">
+        <div class="chart-card"><div class="chart-card-title">Cost Per Run</div><${CostChart} runHistory=${runHistory} /></div>
+        <div class="chart-card"><div class="chart-card-title">Token Breakdown</div><${TokenChart} runHistory=${runHistory} /></div>
+        <div class="chart-card"><div class="chart-card-title">Latency Trend</div><${LatencyChart} runHistory=${runHistory} /></div>
+    </div>`;
+}
+
+function MiniSparkline({ data }) {
+    if (!data || data.length < 2) return null;
+    return html`<div class="sparkline-container"><${ResponsiveContainer} width="100%" height=${50}>
+        <${LineChart} data=${data}><${Line} type="monotone" dataKey="cost" stroke="#d97706" strokeWidth=${1.5} dot=${false} isAnimationActive=${false} /></${LineChart}>
+    </${ResponsiveContainer}></div>`;
+}
+
+// --- Version Editor ---
+
+function VersionEditor({ selectedPrompt, onCreateVersion }) {
+    const [promptText, setPromptText] = useState('');
+    const [modelSettings, setModelSettings] = useState('');
+    const [changeNote, setChangeNote] = useState('');
+    useEffect(() => {
+        if (selectedPrompt && selectedPrompt.latest_version) {
+            setPromptText(selectedPrompt.latest_version.prompt_text || '');
+            setModelSettings(selectedPrompt.latest_version.model_settings ? JSON.stringify(selectedPrompt.latest_version.model_settings, null, 2) : '');
+        } else { setPromptText(''); setModelSettings(''); }
+        setChangeNote('');
+    }, [selectedPrompt]);
+    async function save() { if (!promptText.trim() || !changeNote.trim()) return; await onCreateVersion(promptText.trim(), modelSettings.trim(), changeNote.trim()); setChangeNote(''); }
+    return html`<div class="editor-section">
+        <div class="section-header"><h3 style=${{ fontFamily: "'Syne',sans-serif", fontSize: '16px', fontWeight: 700 }}>New Version</h3></div>
+        <div class="form-group"><label style=${{ fontFamily: "'Inter',sans-serif", fontSize: '13px', fontWeight: 500 }}>Prompt Text</label>
+            <textarea class="editor-textarea" rows="8" value=${promptText} onInput=${e => setPromptText(e.target.value)} placeholder="Enter your prompt text... Use {{variable}} for injected values"></textarea>
+            <${TokenEstimateBar} promptText=${promptText} modelSettingsJson=${modelSettings} />
+        </div>
+        <div class="form-group"><label style=${{ fontFamily: "'Inter',sans-serif", fontSize: '13px', fontWeight: 500 }}>Model Settings (JSON)</label>
+            <textarea class="editor-textarea code" rows="4" value=${modelSettings} onInput=${e => setModelSettings(e.target.value)} placeholder='{"model":"llama-3.3-70b-versatile","temperature":0.7}' style=${{ fontFamily: "'JetBrains Mono',monospace", fontSize: '13px' }}></textarea>
+        </div>
+        <div class="form-group"><label style=${{ fontFamily: "'Inter',sans-serif", fontSize: '13px', fontWeight: 500 }}>Change Note</label>
+            <input type="text" class="editor-input" value=${changeNote} onInput=${e => setChangeNote(e.target.value)} placeholder="Describe what changed..." />
+        </div>
+        <button class="btn-primary" onClick=${save} style=${{ fontFamily: "'Syne',sans-serif", fontWeight: 600 }}>Create New Version</button>
+    </div>`;
+}
+
+// --- Run Result ---
+
+function RunResult({ result }) {
+    if (!result) return null;
+    const ok = result.status === 'success';
+    const statusStyle = ok ? { background: '#065F46', color: '#D1FAE5' } : { background: '#7F1D1D', color: '#FEE2E2' };
+    return html`<div class="run-result" style=${{ borderRadius: 'var(--radius-md)', overflow: 'hidden', marginTop: '16px' }}>
+        <div class="run-result-header" style=${{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px' }}>
+            <span style=${{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: '14px' }}>Run Result</span>
+            <span style=${{ ...statusStyle, padding: '4px 12px', borderRadius: 'var(--radius-full)', fontFamily: "'Syne',sans-serif", fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>${result.status}</span>
+        </div>
+        <div class="run-result-body" style=${{ padding: '16px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+            <div><div style=${{ fontFamily: "'Inter',sans-serif", fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Run ID</div>
+                <div style=${{ fontFamily: "'JetBrains Mono',monospace", fontSize: '14px' }}>${result.run_id || 'N/A'}</div></div>
+            <div><div style=${{ fontFamily: "'Inter',sans-serif", fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Latency</div>
+                <div>${result.latency_ms != null ? html`<${AnimatedNumber} value=${result.latency_ms} suffix="ms" />` : 'N/A'}</div></div>
+            <div><div style=${{ fontFamily: "'Inter',sans-serif", fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Cost</div>
+                <div>${result.cost_usd != null ? html`<${AnimatedNumber} value=${result.cost_usd} prefix="$" decimals=${6} />` : 'N/A'}</div></div>
+            <div><div style=${{ fontFamily: "'Inter',sans-serif", fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Tokens</div>
+                <div>${result.tokens_prompt != null ? html`<${AnimatedNumber} value=${result.tokens_prompt} /> / <${AnimatedNumber} value=${result.tokens_completion} />` : 'N/A'}</div></div>
+        </div>
+        ${result.response && html`<div style=${{ padding: '0 16px 16px' }}>
+            <div style=${{ fontFamily: "'Inter',sans-serif", fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '8px' }}>Response</div>
+            <div style=${{ background: 'var(--bg-primary)', padding: '16px', borderRadius: 'var(--radius-md)', fontFamily: "'JetBrains Mono',monospace", fontSize: '13px', lineHeight: '1.7', border: '1px solid var(--surface-border)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>${result.response}</div>
+        </div>`}
+        ${result.error && html`<div style=${{ padding: '0 16px 16px' }}>
+            <div style=${{ fontFamily: "'Inter',sans-serif", fontSize: '11px', color: '#dc2626', marginBottom: '8px' }}>Error</div>
+            <div style=${{ background: '#7F1D1D', padding: '16px', borderRadius: 'var(--radius-md)', fontFamily: "'JetBrains Mono',monospace", fontSize: '13px', lineHeight: '1.7', color: '#FEE2E2' }}>${result.error}</div>
+        </div>`}
+    </div>`;
+}
+
+// --- Execution Panel ---
+
+function ExecutionPanel({ selectedPrompt, versionHistory, runHistory, runResult, onExecute, showToast }) {
+    if (!selectedPrompt || !selectedPrompt.production_version_id)
+        return html`<${EmptyState} icon="\u26A1" title="No production version" sub="Promote a version to enable execution" />`;
+    const prodVersion = versionHistory.find(v => v.version_id === selectedPrompt.production_version_id);
+    if (!prodVersion) return null;
+    const model = extractModelName(prodVersion.model_settings);
+    const placeholders = extractPlaceholders(prodVersion.prompt_text);
+    function exec() {
+        const vars = {};
+        for (const n of placeholders) {
+            const el = document.getElementById('var-' + n);
+            if (!el || !el.value.trim()) { showToast('Variable "' + n + '" is required'); if (el) el.focus(); return; }
+            vars[n] = el.value.trim();
         }
-
-        const newPrompt = await response.json();
-        showToast('Prompt created successfully');
-        await fetchPrompts();
-        selectPrompt(newPrompt.prompt_id);
-    } catch (error) {
-        console.error('Error creating prompt:', error);
-        showToast(`Failed to create prompt: ${error.message}`);
-        throw error;
+        onExecute(vars);
     }
+    return html`<div class="execution-section" style=${{ marginTop: '32px' }}>
+        <div style=${{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+            <h3 style=${{ fontFamily: "'Syne',sans-serif", fontSize: '16px', fontWeight: 700, margin: 0 }}>Execute</h3>
+            ${model && html`<span style=${{ fontFamily: "'JetBrains Mono',monospace", fontSize: '11px', padding: '3px 10px', borderRadius: 'var(--radius-full)', background: 'var(--accent-bg)', color: 'var(--accent-primary)', border: '1px solid var(--accent-bg)' }}>${model}</span>`}
+        </div>
+        <div class="variable-inputs" style=${{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+            ${placeholders.length === 0
+            ? html`<div style=${{ fontFamily: "'Inter',sans-serif", fontSize: '13px', color: 'var(--text-tertiary)' }}>No variables required</div>`
+            : placeholders.map(n => html`<div key=${n} style=${{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <label style=${{ fontFamily: "'JetBrains Mono',monospace", fontSize: '12px', color: 'var(--text-secondary)', minWidth: '120px' }}>${'{{' + n + '}}'}</label>
+                    <input type="text" id=${'var-' + n} class="var-input" placeholder=${'Enter ' + n + '...'} style=${{ flex: 1 }} />
+                </div>`)}
+        </div>
+        <button class="btn-primary btn-execute" onClick=${exec} style=${{ fontFamily: "'Syne',sans-serif", fontWeight: 600 }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6V2z"/></svg> Execute
+        </button>
+        <${RunResult} result=${runResult} />
+        <${RunCharts} runHistory=${runHistory} />
+    </div>`;
 }
 
-async function deletePrompt(promptId) {
-    try {
-        const response = await fetch(`${VC}/prompts/${promptId}`, { method: 'DELETE', headers: API_HEADERS });
-        if (!response.ok) throw new Error(`Failed: ${response.status}`);
-        showToast('Prompt deleted');
-        state.selectedPromptId = null;
-        state.selectedPrompt = null;
-        await fetchPrompts();
-        showWelcomeScreen();
-    } catch (error) {
-        console.error('Error deleting prompt:', error);
-        showToast('Failed to delete prompt');
-        throw error;
-    }
+// --- Version Card ---
+
+function VersionCard({ version, index, isProduction, onPromote, promptId, sparklineData }) {
+    const model = extractModelName(version.model_settings);
+    const ts = new Date(version.created_at).toLocaleString();
+    return html`<div class="version-card" style=${{ position: 'relative', paddingLeft: '40px', marginBottom: '0', opacity: getVersionOpacity(index) }}>
+        <div class="timeline-dot ${isProduction ? 'is-production' : ''}"></div>
+        <div style=${{ background: 'var(--bg-secondary)', border: '1px solid var(--surface-border)', borderRadius: 'var(--radius-md)', padding: '16px', boxShadow: 'var(--shadow-card)' }}>
+            <div style=${{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                    <span style=${{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: '24px', color: 'var(--text-primary)' }}>v${version.ordinal}</span>
+                    ${isProduction && html`<span class="production-badge" style=${{ marginLeft: '10px', display: 'inline-block', background: '#d97706', color: '#1a1612', fontFamily: "'Syne',sans-serif", fontWeight: 600, fontSize: '10px', padding: '3px 10px', borderRadius: 'var(--radius-full)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>PRODUCTION</span>`}
+                </div>
+                <span style=${{ fontFamily: "'JetBrains Mono',monospace", fontSize: '11px', color: 'var(--text-tertiary)' }}>${ts}</span>
+            </div>
+            ${version.change_note && html`<div style=${{ fontFamily: "'Inter',sans-serif", fontStyle: 'italic', fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px' }}>"${version.change_note}"</div>`}
+            ${model && html`<span style=${{ display: 'inline-block', marginTop: '8px', fontFamily: "'JetBrains Mono',monospace", fontSize: '11px', padding: '2px 8px', borderRadius: 'var(--radius-full)', background: 'var(--accent-bg)', color: 'var(--accent-primary)', border: '1px solid rgba(217,119,6,0.15)' }}>${model}</span>`}
+            <${MiniSparkline} data=${sparklineData} />
+            <div style=${{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
+                ${!isProduction && html`<button class="promote-btn btn-small" onClick=${() => onPromote(promptId, version.version_id)} style=${{ fontFamily: "'Syne',sans-serif", fontWeight: 600, fontSize: '12px', background: 'none', border: '1px solid rgba(217,119,6,0.3)', color: '#d97706', padding: '4px 14px', borderRadius: 'var(--radius-full)', cursor: 'pointer' }}>Promote</button>`}
+                ${isProduction && html`<span style=${{ fontFamily: "'Syne',sans-serif", fontSize: '12px', color: '#d97706', fontWeight: 600 }}>Active</span>`}
+            </div>
+        </div>
+    </div>`;
 }
 
-// -------------------------------------------------------------------
-// Versions
-// -------------------------------------------------------------------
-async function createVersion(promptId, promptText, modelSettings, changeNote) {
-    try {
-        let parsedSettings;
+// --- Promotion History ---
+
+function PromotionHistory({ aliasHistory }) {
+    if (!aliasHistory || !aliasHistory.length) return null;
+    return html`<div style=${{ marginTop: '24px' }}>
+        <h3 style=${{ fontFamily: "'Syne',sans-serif", fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-secondary)', marginBottom: '12px' }}>Promotion History</h3>
+        ${aliasHistory.map((e, i) => html`<div key=${i} style=${{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0', borderBottom: '1px solid var(--surface-divider)', fontFamily: "'JetBrains Mono',monospace", fontSize: '12px', color: 'var(--text-secondary)' }}>
+            <span>${e.from_version_id != null ? 'v' + e.from_version_id : 'none'}</span>
+            <span style=${{ color: 'var(--text-tertiary)' }}>\u2192</span>
+            <span style=${{ color: '#d97706' }}>v${e.to_version_id}</span>
+            <span style=${{ marginLeft: 'auto', fontSize: '11px', color: 'var(--text-tertiary)' }}>${e.changed_at ? new Date(e.changed_at).toLocaleString() : 'â€”'}</span>
+        </div>`)}
+    </div>`;
+}
+
+// --- Timeline Panel ---
+
+function TimelinePanel({ visible, versionHistory, selectedPrompt, aliasHistory, onPromote, runHistory, loading }) {
+    if (!visible) return null;
+    const prodId = selectedPrompt ? selectedPrompt.production_version_id : null;
+    function sparkData(vid) { return runHistory.filter(r => r.version_id === vid && r.status === 'success').map(r => ({ cost: parseFloat(r.cost_usd) || 0 })); }
+    return html`<aside class="timeline-panel" style=${{ display: 'flex' }}>
+        <div style=${{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <h3 style=${{ fontFamily: "'Syne',sans-serif", fontSize: '16px', fontWeight: 700, margin: 0 }}>Timeline</h3>
+            <span style=${{ fontFamily: "'JetBrains Mono',monospace", fontSize: '11px', color: 'var(--text-tertiary)' }}>${versionHistory.length} version${versionHistory.length !== 1 ? 's' : ''}</span>
+        </div>
+        ${loading ? html`<div style=${{ display: 'flex', flexDirection: 'column', gap: '16px', paddingLeft: '40px' }}>
+            <${Skeleton} height="120px" /><${Skeleton} height="120px" /><${Skeleton} height="80px" />
+        </div>` :
+            versionHistory.length === 0
+                ? html`<${EmptyState} icon="\u2295" title="No versions" sub="Create the first version of this prompt" />`
+                : html`<div class="version-list" style=${{ position: 'relative', paddingBottom: '16px' }}>
+                <div class="timeline-line"></div>
+                ${versionHistory.map((v, i) => html`<${VersionCard} key=${v.version_id} version=${v} index=${i} isProduction=${prodId != null && v.version_id === prodId} onPromote=${onPromote} promptId=${selectedPrompt ? selectedPrompt.prompt_id : null} sparklineData=${sparkData(v.version_id)} />`)}
+            </div>`
+        }
+        <${PromotionHistory} aliasHistory=${aliasHistory} />
+    </aside>`;
+}
+
+// --- Prompt Item ---
+
+function PromptItem({ prompt, isActive, onSelect }) {
+    const hasProduction = !!prompt.production_version_id;
+    return html`<div onClick=${() => onSelect(prompt)} class="prompt-item ${isActive ? 'active' : ''}" style=${{ cursor: 'pointer', position: 'relative' }}>
+        <div style=${{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            ${hasProduction && html`<span style=${{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--success-primary)', flexShrink: 0, boxShadow: '0 0 6px var(--success-glow)' }}></span>`}
+            <span style=${{ fontFamily: "'Inter',sans-serif", fontWeight: 600, fontSize: '14px', color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)' }}>${prompt.title}</span>
+        </div>
+        <div style=${{ fontFamily: "'JetBrains Mono',monospace", fontSize: '11px', color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${prompt.key}</div>
+    </div>`;
+}
+
+// --- Sidebar ---
+
+function Sidebar({ prompts, selectedPromptId, onSelectPrompt, onCreatePrompt, healthOnline, loading }) {
+    return html`<aside class="sidebar">
+        <div style=${{ padding: '20px 16px 16px' }}>
+            <div style=${{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h1 style=${{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '18px', letterSpacing: '0.15em', color: '#d97706', margin: 0 }}>CHRONICLE</h1>
+                <span style=${{ width: '6px', height: '6px', borderRadius: '50%', background: healthOnline ? '#16a34a' : '#dc2626', animation: healthOnline ? 'pulse-amber 2s ease infinite' : 'none' }}></span>
+            </div>
+            <div style=${{ fontFamily: "'Inter',sans-serif", fontWeight: 300, fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>Prompt Control Plane</div>
+        </div>
+        <div style=${{ padding: '0 12px 12px' }}>
+            <button class="btn-primary" onClick=${onCreatePrompt} style=${{ width: '100%', fontFamily: "'Syne',sans-serif", fontWeight: 600, fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px' }}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg> New Prompt
+            </button>
+        </div>
+        <div class="prompt-list" style=${{ flex: 1, overflow: 'auto' }}>
+            ${loading ? html`<div style=${{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <${Skeleton} height="48px" /><${Skeleton} height="48px" /><${Skeleton} height="48px" />
+            </div>` :
+            prompts.length === 0
+                ? html`<${EmptyState} icon="\u2325" title="No prompts yet" sub="Create your first prompt to get started" />`
+                : prompts.map(p => html`<${PromptItem} key=${p.prompt_id} prompt=${p} isActive=${selectedPromptId === p.prompt_id} onSelect=${onSelectPrompt} />`)}
+        </div>
+    </aside>`;
+}
+
+// --- Main Panel ---
+
+function MainPanel({ selectedPrompt, versionHistory, runHistory, runResult, onCreateVersion, onDeletePrompt, onExecute, showToast, loading }) {
+    if (!selectedPrompt) return html`<main class="main-panel">
+        <div class="welcome-screen" style=${{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px' }}>
+            <h2 style=${{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: '28px', color: 'var(--text-primary)' }}>Chronicle</h2>
+            <p style=${{ fontFamily: "'Inter',sans-serif", fontSize: '15px', color: 'var(--text-secondary)', maxWidth: '360px', textAlign: 'center', lineHeight: '1.6' }}>Select a prompt from the sidebar or create a new one to get started.</p>
+        </div>
+    </main>`;
+    if (loading) return html`<main class="main-panel"><div style=${{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <${Skeleton} height="28px" width="40%" /><${Skeleton} height="16px" width="60%" /><${Skeleton} height="200px" style=${{ marginTop: '16px' }} /><${Skeleton} height="120px" />
+    </div></main>`;
+    return html`<main class="main-panel">
+        <div class="prompt-view" style=${{ display: 'flex', flexDirection: 'column', padding: '32px', overflow: 'auto', height: '100%' }}>
+            <div style=${{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+                <div>
+                    <div style=${{ fontFamily: "'JetBrains Mono',monospace", fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '4px' }}>${selectedPrompt.key}</div>
+                    <h2 style=${{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: '24px', color: 'var(--text-primary)', margin: 0 }}>${selectedPrompt.title}</h2>
+                    ${selectedPrompt.description && html`<p style=${{ fontFamily: "'Inter',sans-serif", fontSize: '14px', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: '1.5' }}>${selectedPrompt.description}</p>`}
+                </div>
+                <button class="btn-danger-icon" onClick=${onDeletePrompt} title="Delete Prompt" style=${{ opacity: 0.6, transition: 'opacity 150ms' }} onMouseEnter=${e => e.currentTarget.style.opacity = '1'} onMouseLeave=${e => e.currentTarget.style.opacity = '0.6'}>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 4h10M5 4V3a1 1 0 011-1h4a1 1 0 011 1v1M6 7v5M10 7v5M4 4l1 9a1 1 0 001 1h4a1 1 0 001-1l1-9"/></svg>
+                </button>
+            </div>
+            <${VersionEditor} selectedPrompt=${selectedPrompt} onCreateVersion=${onCreateVersion} />
+            <${ExecutionPanel} selectedPrompt=${selectedPrompt} versionHistory=${versionHistory} runHistory=${runHistory} runResult=${runResult} onExecute=${onExecute} showToast=${showToast} />
+        </div>
+    </main>`;
+}
+// --- App Component ---
+
+function App() {
+    const [prompts, setPrompts] = useState([]);
+    const [selectedPrompt, setSelectedPrompt] = useState(null);
+    const [versionHistory, setVersionHistory] = useState([]);
+    const [aliasHistory, setAliasHistory] = useState([]);
+    const [runHistory, setRunHistory] = useState([]);
+    const [runResult, setRunResult] = useState(null);
+    const [healthOnline, setHealthOnline] = useState(false);
+    const [toastMessage, setToastMessage] = useState('');
+    const [toastVisible, setToastVisible] = useState(false);
+    const [createModalVisible, setCreateModalVisible] = useState(false);
+    const [confirmModal, setConfirmModal] = useState({ visible: false, title: '', message: '', callback: null });
+    const [loading, setLoading] = useState(true);
+    const [loadingDetails, setLoadingDetails] = useState(false);
+    const toastTimer = useRef(null);
+
+    function showToast(msg) {
+        setToastMessage(msg); setToastVisible(true);
+        if (toastTimer.current) clearTimeout(toastTimer.current);
+        toastTimer.current = setTimeout(() => setToastVisible(false), 3000);
+    }
+
+    // --- 10 API Functions ---
+
+    // 1. checkHealth
+    async function checkHealth() {
+        try { const r = await fetch(VC + '/prompts', { headers: API_HEADERS }); if (r.ok) { setHealthOnline(true); return true; } }
+        catch (e) { console.error('Health check failed:', e); }
+        setHealthOnline(false); return false;
+    }
+
+    // 2. fetchPrompts
+    async function fetchPrompts() {
         try {
-            parsedSettings = modelSettings.trim() ? JSON.parse(modelSettings) : {};
+            const r = await fetch(VC + '/prompts', { headers: API_HEADERS });
+            if (!r.ok) throw new Error('Failed: ' + r.status);
+            const d = await r.json(); setPrompts(d); return d;
+        } catch (e) { console.error('Error fetching prompts:', e); showToast('Failed to load prompts'); return []; }
+    }
+
+    // 3. fetchPromptDetails
+    async function fetchPromptDetails(pid) {
+        const r = await fetch(VC + '/prompts/' + pid, { headers: API_HEADERS });
+        if (!r.ok) throw new Error('Failed: ' + r.status);
+        return await r.json();
+    }
+
+    // 4. createPrompt
+    async function createPrompt(key, title, description) {
+        try {
+            const body = key ? { key, title, description, created_by: crypto.randomUUID() } : { title, description, created_by: crypto.randomUUID() };
+            const r = await fetch(VC + '/prompts', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(body) });
+            if (!r.ok) { const e = await r.json(); throw new Error(e.detail || 'Failed: ' + r.status); }
+            const np = await r.json(); showToast('Prompt created'); await fetchPrompts(); await handleSelectPrompt(np);
+        } catch (e) { console.error('Error creating prompt:', e); showToast('Failed: ' + e.message); }
+    }
+
+    // 5. deletePrompt
+    async function deletePrompt(pid) {
+        try {
+            const r = await fetch(VC + '/prompts/' + pid, { method: 'DELETE', headers: API_HEADERS });
+            if (!r.ok) throw new Error('Failed: ' + r.status);
+            showToast('Prompt deleted'); setSelectedPrompt(null); setVersionHistory([]); setAliasHistory([]); setRunHistory([]); setRunResult(null);
+            await fetchPrompts();
+        } catch (e) { console.error('Error deleting:', e); showToast('Failed to delete'); }
+    }
+
+    // 6. createVersion
+    async function createVersion(promptText, modelSettings, changeNote) {
+        if (!selectedPrompt) return;
+        try {
+            let parsed; try { parsed = modelSettings.trim() ? JSON.parse(modelSettings) : {}; } catch (e) { throw new Error('Invalid JSON in model settings'); }
+            const r = await fetch(VC + '/versions', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ prompt_id: selectedPrompt.prompt_id, prompt_text: promptText, model_settings: parsed, change_note: changeNote, created_by: crypto.randomUUID() }) });
+            if (!r.ok) { const e = await r.json(); throw new Error(e.detail || 'Failed: ' + r.status); }
+            showToast('Version created');
+            const up = await fetchPromptDetails(selectedPrompt.prompt_id); setSelectedPrompt(up);
+            const vh = await fetchVersionHistoryData(selectedPrompt.prompt_id); setVersionHistory(vh);
+        } catch (e) { console.error('Error creating version:', e); showToast('Failed: ' + e.message); }
+    }
+
+    // 7. fetchVersionHistory
+    async function fetchVersionHistoryData(pid) {
+        const r = await fetch(VC + '/versions/' + pid + '/history', { headers: API_HEADERS });
+        if (!r.ok) throw new Error('Failed: ' + r.status);
+        return await r.json();
+    }
+
+    // 8. promoteVersion
+    async function promoteVersion(pid, vid) {
+        try {
+            const r = await fetch(VC + '/prompts/' + pid + '/promote', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ version_id: vid }) });
+            if (!r.ok) { const e = await r.json(); throw new Error(e.detail || 'Failed: ' + r.status); }
+            showToast('Version promoted to production');
+            const up = await fetchPromptDetails(pid); setSelectedPrompt(up);
+            const vh = await fetchVersionHistoryData(pid); setVersionHistory(vh);
+            const ah = await fetchAliasHistoryData(pid); setAliasHistory(ah);
+        } catch (e) { console.error('Error promoting:', e); showToast('Failed: ' + e.message); }
+    }
+
+    // 9. fetchAliasHistory
+    async function fetchAliasHistoryData(pid) {
+        try {
+            const r = await fetch(VC + '/prompts/' + pid + '/alias-history', { headers: API_HEADERS });
+            if (!r.ok) throw new Error('Failed: ' + r.status);
+            return await r.json();
+        } catch (e) { console.error('Error fetching alias history:', e); return []; }
+    }
+
+    // 10. executePrompt
+    async function executePrompt(variables) {
+        if (!selectedPrompt || !selectedPrompt.production_version_id) return;
+        const pv = versionHistory.find(v => v.version_id === selectedPrompt.production_version_id);
+        if (!pv) return;
+        const model = pv.model_settings ? pv.model_settings.model : null;
+        setRunResult(null);
+        try {
+            const r = await fetch(EXEC + '/execute/' + selectedPrompt.key, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ variables }) });
+            const rid = r.headers.get('X-PromptOps-Run-ID') || r.headers.get('x-promptops-run-id');
+            if (r.ok) {
+                const d = await r.json();
+                const res = { run_id: rid || d.run_id, status: d.status, latency_ms: d.latency_ms, response: d.response, model: d.model_used || model, tokens_prompt: d.prompt_tokens, tokens_completion: d.completion_tokens, cost_usd: d.cost_usd, error: null, version_id: selectedPrompt.production_version_id, timestamp: new Date().toLocaleString() };
+                setRunResult(res); setRunHistory(prev => [res, ...prev]);
+            } else {
+                const ed = await r.json();
+                const res = { run_id: rid || 'N/A', status: 'error', latency_ms: null, response: null, model, tokens_prompt: null, tokens_completion: null, cost_usd: null, error: ed.detail || 'HTTP ' + r.status, version_id: selectedPrompt.production_version_id, timestamp: new Date().toLocaleString() };
+                setRunResult(res); setRunHistory(prev => [res, ...prev]);
+            }
         } catch (e) {
-            throw new Error('Invalid JSON in model settings');
+            const res = { run_id: 'N/A', status: 'error', latency_ms: null, response: null, model, tokens_prompt: null, tokens_completion: null, cost_usd: null, error: e.message, version_id: selectedPrompt.production_version_id, timestamp: new Date().toLocaleString() };
+            setRunResult(res); setRunHistory(prev => [res, ...prev]);
         }
-
-        const createdBy = crypto.randomUUID();
-        const response = await fetch(`${VC}/versions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...API_HEADERS },
-            body: JSON.stringify({
-                prompt_id: promptId,
-                prompt_text: promptText,
-                model_settings: parsedSettings,
-                change_note: changeNote,
-                created_by: createdBy
-            })
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || `Failed: ${response.status}`);
-        }
-
-        showToast('New version created');
-        await fetchPromptDetails(promptId);
-        await fetchVersionHistory(promptId);
-        renderExecutionPanel();
-        elements.changeNote.value = '';
-    } catch (error) {
-        console.error('Error creating version:', error);
-        showToast(`Failed to create version: ${error.message}`);
-        throw error;
-    }
-}
-
-async function fetchVersionHistory(promptId) {
-    const response = await fetch(`${VC}/versions/${promptId}/history`, { headers: API_HEADERS });
-    if (!response.ok) throw new Error(`Failed to fetch version history: ${response.status}`);
-    state.versionHistory = await response.json();
-    renderVersionHistory();
-}
-
-function getVersionAgeClass(createdAt) {
-    const diffMs = new Date() - new Date(createdAt);
-    const diffHours = diffMs / (1000 * 60 * 60);
-    if (diffHours < 24) return 'recent-24h';
-    if (diffHours / 24 < 7) return 'recent-week';
-    if (diffHours / 24 < 30) return 'recent-month';
-    return '';
-}
-
-function renderVersionHistory() {
-    const count = state.versionHistory.length;
-    elements.versionCount.textContent = `${count} version${count !== 1 ? 's' : ''}`;
-
-    if (count === 0) {
-        elements.versionList.innerHTML = '<div class="empty-state">No versions yet</div>';
-        return;
     }
 
-    const productionVersionId = state.selectedPrompt ? state.selectedPrompt.production_version_id : null;
-
-    elements.versionList.innerHTML = state.versionHistory.map((version, index) => {
-        const versionNumber = count - index;
-        const timestamp = new Date(version.created_at).toLocaleString();
-        const isLatest = index === 0;
-        const isProduction = productionVersionId !== null && version.version_id === productionVersionId;
-        const ageClass = isLatest ? 'latest' : getVersionAgeClass(version.created_at);
-
-        return `
-            <div class="version-item ${ageClass} ${isProduction ? 'production' : ''}" style="animation-delay: ${index * 50}ms">
-                <div class="version-header">
-                    <span class="version-number">
-                        v${version.ordinal}
-                        ${isProduction ? '<span class="production-badge">PRODUCTION</span>' : ''}
-                    </span>
-                    <span class="version-timestamp">${timestamp}</span>
-                </div>
-                ${version.change_note ? `<div class="version-change-note">"${escapeHtml(version.change_note)}"</div>` : ''}
-                <div class="version-details">
-                    <div class="version-detail-label">Prompt Text</div>
-                    <div class="version-text">${escapeHtml(version.prompt_text || '')}</div>
-                </div>
-                <div class="version-details">
-                    <div class="version-detail-label">Model Settings</div>
-                    <div class="version-settings">${escapeHtml(JSON.stringify(version.model_settings, null, 2))}</div>
-                </div>
-                <div class="version-actions">
-                    ${!isProduction ? `<button class="btn-promote btn-small" onclick="promoteVersion('${state.selectedPromptId}', ${version.version_id})">Promote to Production</button>` : '<span class="production-active-label">Active</span>'}
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    setupScrollShadows();
-}
-
-// -------------------------------------------------------------------
-// Promotion
-// -------------------------------------------------------------------
-async function promoteVersion(promptId, versionId) {
-    try {
-        const response = await fetch(`${VC}/prompts/${promptId}/promote`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...API_HEADERS },
-            body: JSON.stringify({ version_id: versionId })
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || `Failed: ${response.status}`);
-        }
-
-        showToast('Version promoted to production');
-        await fetchPromptDetails(promptId);
-        await fetchVersionHistory(promptId);
-        await fetchAliasHistory(promptId);
-        renderExecutionPanel();
-    } catch (error) {
-        console.error('Error promoting version:', error);
-        showToast(`Failed to promote: ${error.message}`);
-    }
-}
-
-// -------------------------------------------------------------------
-// Alias History
-// -------------------------------------------------------------------
-async function fetchAliasHistory(promptId) {
-    try {
-        const response = await fetch(`${VC}/prompts/${promptId}/alias-history`, { headers: API_HEADERS });
-        if (!response.ok) throw new Error(`Failed: ${response.status}`);
-        state.aliasHistory = await response.json();
-        renderAliasHistory();
-    } catch (error) {
-        console.error('Error fetching alias history:', error);
-        state.aliasHistory = [];
-        renderAliasHistory();
-    }
-}
-
-function renderAliasHistory() {
-    if (state.aliasHistory.length === 0) {
-        elements.aliasHistorySection.style.display = 'none';
-        return;
-    }
-
-    elements.aliasHistorySection.style.display = 'block';
-    elements.aliasHistoryList.innerHTML = state.aliasHistory.map(entry => {
-        const timestamp = entry.changed_at ? new Date(entry.changed_at).toLocaleString() : 'Unknown';
-        const from = entry.from_version_id !== null ? `v${entry.from_version_id}` : 'none';
-        const to = `v${entry.to_version_id}`;
-        return `
-            <div class="alias-history-item">
-                <div class="alias-arrow">
-                    <span class="alias-from">${escapeHtml(from)}</span>
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M3 8h10M10 4l4 4-4 4"/>
-                    </svg>
-                    <span class="alias-to">${escapeHtml(to)}</span>
-                </div>
-                <span class="alias-timestamp">${timestamp}</span>
-            </div>
-        `;
-    }).join('');
-}
-
-// -------------------------------------------------------------------
-// Execution
-// -------------------------------------------------------------------
-function renderExecutionPanel() {
-    if (!state.selectedPrompt || !state.selectedPrompt.production_version_id) {
-        elements.executionSection.style.display = 'none';
-        return;
-    }
-
-    elements.executionSection.style.display = 'block';
-
-    // Find the production version for its prompt_text
-    const prodVersion = state.versionHistory.find(
-        v => v.version_id === state.selectedPrompt.production_version_id
-    );
-
-    if (!prodVersion) {
-        elements.executionSection.style.display = 'none';
-        return;
-    }
-
-    // Show model badge
-    const model = prodVersion.model_settings ? prodVersion.model_settings.model : null;
-    elements.execModel.textContent = model || 'default (llama-3.3-70b-versatile)';
-
-    // Generate variable inputs from production version's prompt text
-    console.log('[Exec Panel] production_version_id:', state.selectedPrompt.production_version_id);
-    console.log('[Exec Panel] prodVersion.version_id:', prodVersion.version_id);
-    console.log('[Exec Panel] prodVersion.prompt_text:', prodVersion.prompt_text);
-    const placeholders = extractPlaceholders(prodVersion.prompt_text);
-    console.log('[Exec Panel] extracted placeholders:', placeholders);
-    if (placeholders.length === 0) {
-        elements.variableInputs.innerHTML = '<div class="no-vars-note">No variables required</div>';
-    } else {
-        elements.variableInputs.innerHTML = placeholders.map(name => `
-            <div class="var-input-group">
-                <label for="var-${name}" class="var-label">{{${name}}}</label>
-                <input type="text" id="var-${name}" class="var-input" data-var="${name}" placeholder="Enter value for ${name}...">
-            </div>
-        `).join('');
-    }
-}
-
-async function executePrompt() {
-    if (!state.selectedPrompt || !state.selectedPrompt.production_version_id) return;
-
-    const prodVersion = state.versionHistory.find(
-        v => v.version_id === state.selectedPrompt.production_version_id
-    );
-    if (!prodVersion) return;
-
-    const placeholders = extractPlaceholders(prodVersion.prompt_text);
-    const variables = {};
-
-    // Collect and validate variables
-    for (const name of placeholders) {
-        const input = document.getElementById(`var-${name}`);
-        if (!input || !input.value.trim()) {
-            showToast(`Variable "${name}" is required`);
-            if (input) input.focus();
-            return;
-        }
-        variables[name] = input.value.trim();
-    }
-
-    // Disable button during execution
-    elements.btnExecute.disabled = true;
-    elements.btnExecute.textContent = 'Executing...';
-    elements.runResult.style.display = 'none';
-    elements.costEstimatePanel.style.display = 'none';
-
-    const model = prodVersion.model_settings ? prodVersion.model_settings.model : null;
-
-    try {
-        const response = await fetch(`${EXEC}/execute/${state.selectedPrompt.key}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...API_HEADERS },
-            body: JSON.stringify({ variables })
-        });
-
-        const runId = response.headers.get('X-PromptOps-Run-ID') || response.headers.get('x-promptops-run-id');
-
-        if (response.ok) {
-            const data = await response.json();
-            displayRunResult({
-                runId: runId || data.run_id,
-                status: data.status,
-                latencyMs: data.latency_ms,
-                response: data.response,
-                model: data.model_used || model,
-                renderedPrompt: data.rendered_prompt,
-                promptTokens: data.prompt_tokens,
-                completionTokens: data.completion_tokens,
-                costUsd: data.cost_usd,
-                error: null
-            });
-        } else {
-            const errorData = await response.json();
-            displayRunResult({
-                runId: runId || 'N/A',
-                status: 'error',
-                latencyMs: null,
-                response: null,
-                model: model,
-                renderedPrompt: null,
-                error: errorData.detail || `HTTP ${response.status}`
-            });
-        }
-    } catch (error) {
-        displayRunResult({
-            runId: 'N/A',
-            status: 'error',
-            latencyMs: null,
-            response: null,
-            model: model,
-            renderedPrompt: null,
-            error: error.message
-        });
-    } finally {
-        elements.btnExecute.disabled = false;
-        elements.btnExecute.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2l10 6-10 6V2z"/></svg> Execute';
-    }
-}
-
-function displayRunResult(result) {
-    elements.runResult.style.display = 'block';
-
-    elements.runIdValue.textContent = result.runId || 'N/A';
-
-    // Status badge
-    const isSuccess = result.status === 'success';
-    elements.runStatus.textContent = result.status;
-    elements.runStatus.className = `run-status ${isSuccess ? 'status-success' : 'status-error'}`;
-    elements.runStatusValue.textContent = result.status;
-
-    // Latency
-    elements.runLatencyValue.textContent = result.latencyMs !== null ? `${result.latencyMs}ms` : 'N/A';
-
-    // Est. Cost
-    elements.runCostValue.textContent = result.costUsd != null ? formatCost(result.costUsd) : 'N/A';
-
-    // Tokens
-    if (result.promptTokens != null && result.completionTokens != null) {
-        elements.runTokensValue.textContent = `${result.promptTokens} in / ${result.completionTokens} out`;
-    } else {
-        elements.runTokensValue.textContent = 'N/A';
-    }
-
-    // Response
-    if (result.response) {
-        elements.runResponseBlock.style.display = 'block';
-        elements.runResponseValue.textContent = result.response;
-    } else {
-        elements.runResponseBlock.style.display = 'none';
-    }
-
-    // Error
-    if (result.error) {
-        elements.runErrorBlock.style.display = 'block';
-        elements.runErrorValue.textContent = result.error;
-    } else {
-        elements.runErrorBlock.style.display = 'none';
-    }
-
-    // Add to session run history
-    state.runHistory.unshift({
-        runId: result.runId,
-        status: result.status,
-        latencyMs: result.latencyMs,
-        model: result.model,
-        costUsd: result.costUsd,
-        error: result.error,
-        timestamp: new Date().toLocaleString()
-    });
-    renderRunHistory();
-}
-
-function renderRunHistory() {
-    if (state.runHistory.length === 0) {
-        elements.runHistorySection.style.display = 'none';
-        return;
-    }
-
-    elements.runHistorySection.style.display = 'block';
-    elements.runHistoryList.innerHTML = `
-        <table class="run-history-table">
-            <thead>
-                <tr>
-                    <th>Run ID</th>
-                    <th>Status</th>
-                    <th>Latency</th>
-                    <th>Time</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${state.runHistory.map(run => `
-                    <tr class="${run.status === 'success' ? 'row-success' : 'row-error'}">
-                        <td class="run-id-cell">${escapeHtml(String(run.runId))}</td>
-                        <td><span class="status-pill ${run.status === 'success' ? 'status-success' : 'status-error'}">${escapeHtml(run.status)}</span></td>
-                        <td>${run.latencyMs !== null ? run.latencyMs + 'ms' : '—'}</td>
-                        <td>${escapeHtml(run.timestamp)}</td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-    `;
-}
-
-// -------------------------------------------------------------------
-// View states
-// -------------------------------------------------------------------
-function showPromptView() {
-    elements.welcomeScreen.style.display = 'none';
-    elements.promptView.style.display = 'flex';
-    elements.timelinePanel.style.display = 'flex';
-}
-
-function showWelcomeScreen() {
-    elements.welcomeScreen.style.display = 'flex';
-    elements.promptView.style.display = 'none';
-    elements.timelinePanel.style.display = 'none';
-}
-
-// -------------------------------------------------------------------
-// Modals
-// -------------------------------------------------------------------
-function showCreatePromptModal() {
-    elements.createPromptModal.classList.add('active');
-    document.getElementById('newPromptKey').value = '';
-    document.getElementById('newPromptTitle').value = '';
-    document.getElementById('newPromptDescription').value = '';
-    state.userEditedKey = false;
-}
-
-function closeCreatePromptModal() {
-    elements.createPromptModal.classList.remove('active');
-    state.userEditedKey = false;
-}
-
-function showConfirmModal(title, message, callback) {
-    document.getElementById('confirmTitle').textContent = title;
-    document.getElementById('confirmMessage').textContent = message;
-    state.confirmCallback = callback;
-    elements.confirmModal.classList.add('active');
-}
-
-function closeConfirmModal() {
-    elements.confirmModal.classList.remove('active');
-    state.confirmCallback = null;
-}
-
-function confirmDeletePrompt() {
-    if (!state.selectedPromptId) return;
-    showConfirmModal(
-        'Delete Prompt',
-        'Are you sure you want to delete this prompt? This will delete all versions and cannot be undone.',
-        () => deletePrompt(state.selectedPromptId)
-    );
-}
-
-// -------------------------------------------------------------------
-// Theme
-// -------------------------------------------------------------------
-function initTheme() {
-    const savedTheme = localStorage.getItem('chronicle-theme') || 'matte';
-    setTheme(savedTheme);
-}
-
-function setTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('chronicle-theme', theme);
-    elements.themeSelector.querySelectorAll('.theme-option').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-theme') === theme);
-    });
-}
-
-// -------------------------------------------------------------------
-// Scroll shadows
-// -------------------------------------------------------------------
-function setupScrollShadows() {
-    const list = elements.versionList;
-    if (!list) return;
-
-    function updateShadows() {
-        const { scrollTop, scrollHeight, clientHeight } = list;
-        list.classList.toggle('scrolled-top', scrollTop > 10);
-        list.classList.toggle('scrolled-bottom', scrollTop < scrollHeight - clientHeight - 10);
-    }
-
-    list.addEventListener('scroll', updateShadows);
-    updateShadows();
-}
-
-// -------------------------------------------------------------------
-// Event listeners
-// -------------------------------------------------------------------
-elements.btnCreatePrompt.addEventListener('click', showCreatePromptModal);
-
-document.getElementById('btnCloseCreateModal').addEventListener('click', closeCreatePromptModal);
-document.getElementById('btnCancelCreate').addEventListener('click', closeCreatePromptModal);
-
-document.getElementById('btnConfirmCreate').addEventListener('click', async () => {
-    const key = document.getElementById('newPromptKey').value.trim();
-    const title = document.getElementById('newPromptTitle').value.trim();
-    const description = document.getElementById('newPromptDescription').value.trim();
-
-    if (!title) {
-        showToast('Title is required');
-        return;
-    }
-
-    try {
-        await createPrompt(key, title, description);
-        closeCreatePromptModal();
-    } catch (error) { }
-});
-
-elements.btnSaveVersion.addEventListener('click', async () => {
-    if (!state.selectedPromptId) return;
-
-    const promptText = elements.promptText.value.trim();
-    const modelSettings = elements.modelSettings.value.trim();
-    const changeNote = elements.changeNote.value.trim();
-
-    if (!promptText) { showToast('Prompt text is required'); return; }
-    if (!changeNote) { showToast('Change note is required'); return; }
-
-    try {
-        await createVersion(state.selectedPromptId, promptText, modelSettings, changeNote);
-    } catch (error) { }
-});
-
-elements.btnDeletePrompt.addEventListener('click', confirmDeletePrompt);
-
-document.getElementById('btnCloseConfirmModal').addEventListener('click', closeConfirmModal);
-document.getElementById('btnCancelConfirm').addEventListener('click', closeConfirmModal);
-
-document.getElementById('btnConfirmAction').addEventListener('click', async () => {
-    if (state.confirmCallback) {
+    // --- Selection / Delete ---
+    async function handleSelectPrompt(prompt) {
+        setRunHistory([]); setRunResult(null); setVersionHistory([]); setAliasHistory([]);
+        setLoadingDetails(true);
         try {
-            await state.confirmCallback();
-            closeConfirmModal();
-        } catch (error) { }
-    }
-});
-
-elements.createPromptModal.addEventListener('click', (e) => {
-    if (e.target === elements.createPromptModal) closeCreatePromptModal();
-});
-
-elements.confirmModal.addEventListener('click', (e) => {
-    if (e.target === elements.confirmModal) closeConfirmModal();
-});
-
-elements.themeSelector.addEventListener('click', (e) => {
-    const btn = e.target.closest('.theme-option');
-    if (!btn) return;
-    setTheme(btn.getAttribute('data-theme'));
-});
-elements.btnExecute.addEventListener('click', executePrompt);
-
-// Estimate button in execution panel
-elements.btnEstimateCost.addEventListener('click', () => {
-    if (!state.selectedPrompt || !state.selectedPrompt.production_version_id) return;
-
-    const prodVersion = state.versionHistory.find(
-        v => v.version_id === state.selectedPrompt.production_version_id
-    );
-    if (!prodVersion) return;
-
-    const placeholders = extractPlaceholders(prodVersion.prompt_text);
-    let promptText = prodVersion.prompt_text;
-    let variablesNote = '';
-    let allFilled = true;
-
-    for (const name of placeholders) {
-        const input = document.getElementById(`var-${name}`);
-        if (input && input.value.trim()) {
-            promptText = promptText.replaceAll(`{{${name}}}`, input.value.trim());
-        } else {
-            allFilled = false;
-        }
+            const d = await fetchPromptDetails(prompt.prompt_id); setSelectedPrompt(d);
+            const vh = await fetchVersionHistoryData(prompt.prompt_id); setVersionHistory(vh);
+            const ah = await fetchAliasHistoryData(prompt.prompt_id); setAliasHistory(ah);
+        } catch (e) { console.error('Error selecting:', e); showToast('Failed to load'); }
+        setLoadingDetails(false);
     }
 
-    if (placeholders.length > 0 && !allFilled) {
-        variablesNote = 'Variables not filled \u2014 estimate based on template length.';
+    function handleDeletePrompt() {
+        if (!selectedPrompt) return;
+        setConfirmModal({
+            visible: true, title: 'Delete Prompt', message: 'Delete this prompt and all versions? This cannot be undone.',
+            callback: () => { deletePrompt(selectedPrompt.prompt_id); setConfirmModal({ visible: false, title: '', message: '', callback: null }); }
+        });
     }
 
-    const modelSettingsJson = prodVersion.model_settings ? JSON.stringify(prodVersion.model_settings) : '';
-    const estimate = estimateCost(promptText, modelSettingsJson);
+    // --- Init ---
+    useEffect(() => {
+        (async () => {
+            const ok = await checkHealth();
+            if (ok) await fetchPrompts();
+            setLoading(false);
+        })();
+    }, []);
 
-    let html = '<div class="estimate-title">Cost Estimate</div>';
-
-    if (estimate.model && estimate.cost !== null) {
-        html += `
-            <div class="estimate-field">
-                <span class="estimate-label">Prompt tokens</span>
-                <span class="estimate-value">~${estimate.tokens}</span>
+    // --- Render ---
+    return html`<div class="app-container">
+        <header class="app-header">
+            <div class="header-content" style=${{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '0 24px', height: '100%' }}>
+                <${ThemeSelector} />
             </div>
-            <div class="estimate-field">
-                <span class="estimate-label">Input cost</span>
-                <span class="estimate-value">$${estimate.cost.toFixed(6)}</span>
-            </div>
-            <div class="estimate-field">
-                <span class="estimate-label">Model</span>
-                <span class="estimate-value">${escapeHtml(estimate.model)}</span>
-            </div>
-            <div class="estimate-note">Estimate only. Actual cost depends on completion tokens.${variablesNote ? ' ' + variablesNote : ''}</div>
-        `;
-    } else {
-        html += `
-            <div class="estimate-field">
-                <span class="estimate-label">Prompt tokens</span>
-                <span class="estimate-value">~${estimate.tokens}</span>
-            </div>
-            <div class="estimate-note">Model not set \u2014 configure model settings on the version.${variablesNote ? ' ' + variablesNote : ''}</div>
-        `;
-    }
-
-    elements.costEstimatePanel.innerHTML = html;
-    elements.costEstimatePanel.style.display = 'block';
-});
-
-// Live token estimate bar in editor
-elements.promptText.addEventListener('keyup', updateTokenEstimateBar);
-elements.modelSettings.addEventListener('keyup', updateTokenEstimateBar);
-
-// Auto-populate key from title
-document.getElementById('newPromptTitle').addEventListener('keyup', () => {
-    if (!state.userEditedKey) {
-        const title = document.getElementById('newPromptTitle').value;
-        document.getElementById('newPromptKey').value = title ? generateKey(title) : '';
-    }
-});
-
-// Track manual key edits
-document.getElementById('newPromptKey').addEventListener('keyup', () => {
-    state.userEditedKey = true;
-});
-
-// -------------------------------------------------------------------
-// Init
-// -------------------------------------------------------------------
-async function init() {
-    console.log('Initializing Chronicle GUI...');
-    initTheme();
-    const isHealthy = await checkHealth();
-    if (isHealthy) {
-        await fetchPrompts();
-    }
+        </header>
+        <${Sidebar} prompts=${prompts} selectedPromptId=${selectedPrompt ? selectedPrompt.prompt_id : null} onSelectPrompt=${handleSelectPrompt} onCreatePrompt=${() => setCreateModalVisible(true)} healthOnline=${healthOnline} loading=${loading} />
+        <${MainPanel} selectedPrompt=${selectedPrompt} versionHistory=${versionHistory} runHistory=${runHistory} runResult=${runResult} onCreateVersion=${createVersion} onDeletePrompt=${handleDeletePrompt} onExecute=${executePrompt} showToast=${showToast} loading=${loadingDetails} />
+        <${TimelinePanel} visible=${selectedPrompt !== null} versionHistory=${versionHistory} selectedPrompt=${selectedPrompt} aliasHistory=${aliasHistory} onPromote=${promoteVersion} runHistory=${runHistory} loading=${loadingDetails} />
+        <${CreatePromptModal} visible=${createModalVisible} onClose=${() => setCreateModalVisible(false)} onCreate=${createPrompt} />
+        <${ConfirmModal} visible=${confirmModal.visible} title=${confirmModal.title} message=${confirmModal.message} onConfirm=${confirmModal.callback} onClose=${() => setConfirmModal({ visible: false, title: '', message: '', callback: null })} />
+        <${Toast} message=${toastMessage} visible=${toastVisible} />
+    </div>`;
 }
 
-init();
+// --- Mount ---
+const root = ReactDOM.createRoot(document.getElementById('app'));
+root.render(html`<${App} />`);
