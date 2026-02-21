@@ -75,3 +75,7 @@ node_modules
 package-lock.json
 package.json
 >>>>>>> chronicle-tanish
+node_modules/
+dist/
+build/
+.env
