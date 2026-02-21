@@ -1,6 +1,6 @@
 # Chronicle Architecture Overview
 
-![Chronicle Architecture Overview](../img/architecture_detailed.png)
+![Chronicle Architecture Overview](../img/architecture_in_detail.png)
 
 Below are architectural and entity-relationship (ER) diagrams built using Mermaid.js to help developers understand the Chronicle project's structure, components, and data flow.
 

@@ -5,7 +5,7 @@ This repository contains the full source code for the "PromptPilot" major projec
 
 ## Structure
 
-![Chronicle Architecture](img/architecture_detailed.png)
+![Chronicle Architecture](img/architecture_in_detail.png)
 
 It is organized into two main parts:
 
