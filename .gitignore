@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Logs
 logs
 *.log
@@ -23,3 +24,54 @@ dist-ssr
 *.sln
 *.sw?
 chronicle/.env
+=======
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Alembic
+alembic/__pycache__/
+alembic/versions/__pycache__/
+
+# Misc
+*.log
+
+# in development
+frontend/node_modules
+frontend
+node_modules
+package-lock.json
+package.json
+>>>>>>> chronicle-tanish

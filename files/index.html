@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="matte">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle — Prompt Version Control</title>
+    <meta name="description" content="A system for managing prompt versions with full history tracking">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script>
+        // Apply saved theme before first render to prevent flash
+        (function () {
+            var t = localStorage.getItem('chronicle-theme') || 'matte';
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+</head>
+
+<body>
+    <div id="app"></div>
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/react-is@18/umd/react-is.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/3.2.1/Recharts.min.js"></script>
+    <script src="https://unpkg.com/htm@3/dist/htm.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
