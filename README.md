@@ -108,7 +108,7 @@ Matte is the default. Selection persists to `localStorage` under key `chronicle-
 
 Chronicle now includes a fully-featured Command Line Interface (CLI) to manage the prompt execution environment directly from your terminal.
 
-![Chronicle CLI execution environment](init.png)
+![Chronicle CLI execution environment](img/chronicle_cli.png)
 
 ### Key Capabilities
 
