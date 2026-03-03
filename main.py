@@ -9,6 +9,7 @@ from config import settings
 from db import engine, Base
 from version_control.routes import router as version_router
 from execution.routes import router as execution_router
+from evaluation.routes import router as evaluation_router
 
 # Configure logging
 logging.basicConfig(
@@ -69,6 +70,9 @@ app.include_router(
     execution_router,
     prefix="/api/v1",
     tags=["Execution"]
+)
+app.include_router(
+    evaluation_router,
 )
 
 # Health check endpoint

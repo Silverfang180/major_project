@@ -31,7 +31,7 @@ class PromptRead(PromptBase):
 # ------------------------
 
 class VersionBase(BaseModel):
-    prompt_text: str = Field(min_length=1)
+    prompt_text: str = Field(min_length=1, max_length=131072)
     model_settings: Dict[str, Any] = Field(default_factory=dict)
     change_note: Optional[str] = None
 

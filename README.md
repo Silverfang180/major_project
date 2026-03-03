@@ -76,7 +76,9 @@ chronicle/
 │   ├── local-setup-guide.md
 │   ├── phase1-implementation-status.md
 │   └── testing-guide.md
-└── test_chronicle_full.py   # 27 integration + unit tests
+├── evaluation/              # Eval pipelines, metrics, Pareto computation
+├── synthetic/               # Synthetic data generation and validation
+└── tests/                   # 145 integration + unit tests
 ```
 
 ---
@@ -168,6 +170,68 @@ Chronicle now includes a fully-featured Command Line Interface (CLI) to manage t
 
 ---
 
+## Phase 2: Evaluation Engine
+
+### What's been built
+
+**Dataset Management**
+- Create datasets with name, description, task_type (classification/qa/generation)
+- Add examples individually, in bulk, or via CSV upload
+- Soft-delete protection — no data loss
+
+**Eval Job Orchestrator**  
+- POST /api/v1/eval/jobs — creates job, runs in background via FastAPI BackgroundTasks
+- Pre-inserts Run row with `pending` status before LLM call — crash-safe execution
+- Per-example rollback — one failed example does not abort the job
+- Polls each example against the dataset, stores raw output and is_correct
+
+**Three Evaluators**
+- `exact_match` — normalised string comparison (lowercase, stripped)
+- `llm_judge` — secondary LLM scores output 0.0–1.0 against expected
+- `confidence_calibration` — MCE computation across confidence buckets
+
+**Metrics & Summary**
+- compute_summary — accuracy, mean_evaluator_score, cost_per_correct, p50/p95 latency, MCE
+- compute_pareto_frontier — dominance loop across cost_per_correct vs accuracy
+- identify_knee_point — perpendicular geometric distance in normalised [0,1] space
+- generate_recommendation — plain English deployment recommendation
+
+**Comparison & Dashboard API**
+- GET /api/v1/eval/compare/dataset/{id} — auto-compare all jobs on a dataset
+- GET /api/v1/eval/dashboard — platform-wide metrics
+- GET /api/v1/eval/jobs/{id}/report — full job report for CLI
+- GET /api/v1/eval/datasets/{id}/leaderboard — ranked versions with Pareto flags
+
+**Synthetic Data Generator**
+- Two-model pipeline: generator + validator (different models for independence)
+- Jaccard similarity deduplication — enforces diversity across examples
+- YAML config driven — task_type, num_examples, output_schema, diversity_threshold
+- Datasets: ecommerce-sentiment-eval (21 examples), science-qa-eval (24 examples)
+
+**Frontend**
+- Full React UI wired to all backend APIs — zero mock data
+- Pareto scatter plot with proper min/max normalisation
+- Real-time eval job polling (2s interval, auto-clears on completion)
+- Run Eval Job modal with prompt/version/evaluator selection
+- Health bar wired to GET /api/v1/eval/dashboard
+
+### Verified Pareto Frontier (ecommerce-sentiment-eval)
+
+6-point frontier computed across 3 prompt versions × 2 models:
+
+| Version | Model | Accuracy | Cost/Correct | Pareto Optimal | Knee |
+|---------|-------|----------|--------------|----------------|------|
+| v1141 | llama-3.3-70b-versatile | 100% | $0.000094 | ✓ | |
+| v1131 | llama-3.3-70b-versatile | 96.7% | $0.000068 | ✓ | ✓ |
+| v1136 | llama-3.3-70b-versatile | 92.9% | $0.000064 | ✓ | |
+| v1135 | llama-3.3-70b-versatile | 95.0% | $0.000100 | ✗ (dominated) | |
+| v1130 | llama-3.3-70b-versatile | 0.0% | — | ✗ | |
+| v1134 | llama-3.1-8b-instant | 90.0% | — (pricing gap) | ✗ | |
+
+Recommendation generated: *"Version 1131 on llama-3.3-70b-versatile offers the best cost-accuracy balance (knee point). Recommended for production unless accuracy above 97% is required, in which case version 1141 achieves 100% at 1.4x the cost."*
+
+---
+
 ## Key Design Decisions
 
 - **Versions are immutable.** No update or delete on versions. Fix a bad version by creating a new one. All deletions are now soft-deletes with an auto-pruning job to prevent accidental hard deletion of alias history.
@@ -179,13 +243,16 @@ Chronicle now includes a fully-featured Command Line Interface (CLI) to manage t
 
 ## Supported Models
 
-| Model | Input $/1K tokens | Output $/1K tokens |
-|-------|-------------------|---------------------|
-| llama-3.3-70b-versatile | 0.00059 | 0.00079 |
-| llama3-70b-8192 | 0.00059 | 0.00079 |
-| llama-3.1-8b-instant | 0.00005 | 0.00008 |
-| mixtral-8x7b-32768 | 0.00024 | 0.00024 |
-| gemma2-9b-it | 0.00020 | 0.00020 |
+| Model | Provider | Tier |
+|-------|----------|------|
+| llama-3.3-70b-versatile | Groq | Primary |
+| llama-3.1-8b-instant | Groq | Fast/Cheap |
+| llama3-70b-8192 | Groq | Legacy |
+| mixtral-8x7b-32768 | Groq | Legacy |
+| gemma2-9b-it | Groq | Compact |
+| openai/gpt-oss-120b | OpenRouter | Validation |
+
+*Note: Missing model pricing acts as a known gap that affects Pareto cost computation for jobs using that model.*
 
 ---
 
@@ -231,8 +298,8 @@ docker-compose up --build
 ## Testing
 
 ```powershell
-# Run all 31 tests
-.venv\Scripts\python.exe -m pytest test_chronicle_full.py -v
+# Run all 145 tests
+.venv\Scripts\python.exe -m pytest -v
 
 # Run a specific section
 .venv\Scripts\python.exe -m pytest test_chronicle_full.py -v -k "TestExecutionBoundary"

@@ -37,6 +37,7 @@ async def execute_prompt(
     prompt_key: str,
     payload: ExecuteRequest,
     response: Response,
+    version_id: Optional[int] = Query(default=None, description="Specific version to execute"),
     alias: str = Query(default="production", description="Alias to resolve (production only in Phase-1)"),
     db: AsyncSession = Depends(get_session)
 ):
@@ -45,7 +46,7 @@ async def execute_prompt(
     
     Flow:
     1. Resolve prompt_key → Prompt
-    2. Resolve alias → production_version_id → PromptVersion
+    2. Resolve version_id OR alias → PromptVersion
     3. Extract placeholders, validate variables
     4. Render prompt
     5. Insert pending run
@@ -53,14 +54,7 @@ async def execute_prompt(
     7. Update run with result
     8. Return response with X-PromptOps-Run-ID header
     """
-    logger.info(f"Executing prompt '{prompt_key}' with alias '{alias}'")
-    
-    # Phase-1: Only production alias supported
-    if alias != "production":
-        raise HTTPException(
-            status_code=400,
-            detail=f"Alias '{alias}' not supported. Phase-1 only supports 'production'."
-        )
+    logger.info(f"Executing prompt '{prompt_key}' (version_id={version_id}, alias={alias})")
     
     # Step 1: Resolve prompt by key
     stmt = select(Prompt).where(Prompt.key == prompt_key)
@@ -70,26 +64,44 @@ async def execute_prompt(
     if not prompt:
         raise HTTPException(status_code=404, detail=f"Prompt '{prompt_key}' not found")
     
-    # Step 2: Resolve alias to version
-    if not prompt.production_version_id:
-        raise HTTPException(
-            status_code=404, 
-            detail=f"Prompt '{prompt_key}' has no production version. Use POST /prompts/{{id}}/promote first."
-        )
-    
-    version = await db.get(PromptVersion, prompt.production_version_id)
-    if not version:
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Production version {prompt.production_version_id} not found (data integrity issue)"
-        )
-    
+    # Step 2: Resolve version OR alias
+    version = None
+    if version_id is not None:
+        version = await db.get(PromptVersion, version_id)
+        if not version:
+            raise HTTPException(status_code=404, detail="Version not found")
+        if version.prompt_id != prompt.prompt_id:
+            raise HTTPException(status_code=400, detail="Version does not belong to this prompt")
+        used_alias = f"version:{version_id}"
+    else:
+        # Phase-1: Only production alias supported
+        if alias != "production":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Alias '{alias}' not supported. Phase-1 only supports 'production'."
+            )
+        
+        if not prompt.production_version_id:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Prompt '{prompt_key}' has no production version. Use POST /prompts/{{id}}/promote first."
+            )
+        
+        version = await db.get(PromptVersion, prompt.production_version_id)
+        if not version:
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Production version {prompt.production_version_id} not found (data integrity issue)"
+            )
+        used_alias = alias
+
     # Step 3: Extract and validate variables
     try:
         required_vars = extract_placeholders(version.prompt_text)
         validate_variables(required_vars, payload.variables, strict=True)
     except VariableError as e:
         raise HTTPException(status_code=422, detail=str(e))
+
     
     # Step 4: Render prompt
     rendered = render_prompt(version.prompt_text, payload.variables)
@@ -98,7 +110,7 @@ async def execute_prompt(
     run = Run(
         version_id=version.version_id,
         prompt_key=prompt_key,
-        alias_used=alias,
+        alias_used=used_alias,
         input_vars=payload.variables,
         rendered_prompt=rendered,
         raw_response={},

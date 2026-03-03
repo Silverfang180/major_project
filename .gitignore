@@ -1,30 +1,3 @@
-<<<<<<< HEAD
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-chronicle/.env
-=======
 # Python
 __pycache__/
 *.py[cod]
@@ -33,6 +6,14 @@ __pycache__/
 *.egg
 dist/
 build/
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Alembic
+alembic/__pycache__/
+alembic/versions/__pycache__/
 
 # Virtual environments
 .venv/
@@ -43,39 +24,36 @@ env/
 .env
 .env.*
 
-# IDE
+# Node / JS / React Frontend
+node_modules/
+dist-ssr/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+package-lock.json
+
+# IDEs
 .vscode/
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
 *~
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
 
 # OS
 Thumbs.db
 Desktop.ini
 .DS_Store
 
-# Testing
-.pytest_cache/
-htmlcov/
-.coverage
-coverage.xml
-
-# Alembic
-alembic/__pycache__/
-alembic/versions/__pycache__/
-
-# Misc
+# Misc Logs
+logs/
 *.log
-
-# in development
-frontend/node_modules
-frontend
+chronicle.db
+Frontend
 node_modules
-package-lock.json
-package.json
->>>>>>> chronicle-tanish
-node_modules/
-dist/
-build/
-.env

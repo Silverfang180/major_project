@@ -1,0 +1,52 @@
+dataset:
+  name: "science-qa-eval"
+  task_type: "qa"
+  description: "Extractive QA on Wikipedia-style science paragraphs"
+  if_exists: "append"
+
+generation:
+  size: 50
+  difficulty:
+    easy:
+      ratio: 0.2
+      definition: "Question answered by a single explicit sentence in the context"
+    medium:
+      ratio: 0.6
+      definition: "Answer requires combining information from two or more sentences"
+    hard:
+      ratio: 0.2
+      definition: "Answer requires inference, bridging, or multi-hop reasoning"
+  edge_cases:
+    ratio: 0.15
+    types:
+      - "unanswerable"
+      - "distractor_present"
+  diversity:
+    enforce: true
+    min_word_overlap_threshold: 0.3
+    required_topic_variants: 3
+
+domain:
+  topic: "Scientific knowledge from Wikipedia-style encyclopedic passages"
+  context_style: "encyclopedic"
+  answer_type: "extractive"
+
+validation:
+  criteria:
+    - "The context is a coherent and factually plausible science passage"
+    - "The question is well-formed and unambiguous"
+    - "The expected_answer is correct and found in or directly inferable from the context"
+    - "The answer_span is an exact substring of context for extractive examples"
+    - "Edge case type is correctly exhibited if present"
+  rejection_threshold: 0.75
+  max_regeneration_attempts: 3
+
+models:
+  generator: "llama-3.3-70b-versatile"
+  validator: "openai/gpt-oss-120b"
+  delay_seconds: 3.0
+
+output:
+  push_to_db: true
+  save_csv: true
+  csv_path: "./exports"

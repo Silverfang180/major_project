@@ -1,0 +1,54 @@
+dataset:
+  name: "ecommerce-sentiment-eval"
+  task_type: "classification"
+  description: "Sentiment classification on e-commerce product reviews"
+  if_exists: "append"
+
+generation:
+  size: 50
+  difficulty:
+    easy:
+      ratio: 0.2
+      definition: "Reviews with clear, unambiguous sentiment expressed directly"
+    medium:
+      ratio: 0.6
+      definition: "Reviews with mixed signals, hedged language, or domain-specific terms"
+    hard:
+      ratio: 0.2
+      definition: "Reviews requiring inference, cultural knowledge, or irony detection"
+  edge_cases:
+    ratio: 0.15
+    types:
+      - "negation"
+      - "sarcasm"
+      - "mixed_sentiment"
+  diversity:
+    enforce: true
+    min_word_overlap_threshold: 0.3
+    required_topic_variants: 3
+
+domain:
+  topic: "E-commerce product review sentiment analysis"
+  labels:
+    - "positive"
+    - "negative"
+    - "neutral"
+
+validation:
+  criteria:
+    - "The input_text is a realistic product review an actual customer might write"
+    - "The expected_label matches the sentiment in the review"
+    - "The difficulty matches the stated definition"
+    - "Edge case type is correctly exhibited if present"
+  rejection_threshold: 0.75
+  max_regeneration_attempts: 3
+
+models:
+  generator: "llama-3.3-70b-versatile"
+  validator: "openai/gpt-oss-120b"
+  delay_seconds: 3.0
+
+output:
+  push_to_db: true
+  save_csv: true
+  csv_path: "./exports"
