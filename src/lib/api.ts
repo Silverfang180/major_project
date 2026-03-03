@@ -1,9 +1,13 @@
-import type { Version } from './mockData';
+// Chronicle API Client
+// All calls go through the Vite proxy (/api -> http://localhost:8000/api)
 
-const API_BASE = '/api/v1/version-control';
+const VC_BASE = '/api/v1/version-control';
+const EXEC_BASE = '/api/v1';
+const EVAL_BASE = '/api/v1/eval';
 
-// Backend types
-interface PromptResponse {
+// ---------- Types ----------
+
+export interface PromptResponse {
     prompt_id: string;
     key: string;
     title: string;
@@ -11,10 +15,11 @@ interface PromptResponse {
     created_at: string;
     updated_at?: string;
     deleted_at?: string | null;
+    production_version_id?: number | null;
     latest_version?: VersionResponse;
 }
 
-interface VersionResponse {
+export interface VersionResponse {
     version_id: number;
     prompt_id: string;
     ordinal: number;
@@ -27,135 +32,300 @@ interface VersionResponse {
     deleted_at?: string | null;
 }
 
-interface SimulationResponse {
-    response: string;
-    usage: {
-        input_tokens: number;
-        output_tokens: number;
-        total_cost: number;
-    };
+export interface RunResponse {
+    run_id: string;
+    prompt_id: string;
+    prompt_key: string;
+    version_id: number;
+    ordinal?: number;
+    status: 'pending' | 'success' | 'error';
+    model: string;
+    input_variables?: Record<string, any>;
+    rendered_prompt?: string;
+    output?: string;
+    input_tokens?: number;
+    output_tokens?: number;
+    total_tokens?: number;
+    cost_usd?: number | null;
+    latency_ms?: number;
+    error_detail?: string;
+    created_at: string;
 }
 
-// Frontend types (mapping to what UI expects)
+export interface DatasetResponse {
+    dataset_id: string;
+    name: string;
+    description?: string;
+    task_type: string;
+    created_at: string;
+    deleted_at?: string | null;
+    example_count?: number;
+}
+
+export interface ExampleResponse {
+    example_id: string;
+    dataset_id: string;
+    input_variables: Record<string, any>;
+    expected_output: string;
+    created_at: string;
+    deleted_at?: string | null;
+}
+
+export interface EvalJobResponse {
+    job_id: string;
+    prompt_id: string;
+    prompt_key?: string;
+    version_id: number;
+    dataset_id: string;
+    dataset_name?: string;
+    evaluators: string[];
+    status: 'pending' | 'running' | 'completed' | 'failed';
+    created_at: string;
+    completed_at?: string | null;
+    summary?: EvalJobSummary | null;
+}
+
+export interface EvalJobSummary {
+    accuracy?: number;
+    mean_evaluator_score?: number;
+    cost_per_correct?: number | null;
+    p50_latency_ms?: number;
+    p95_latency_ms?: number;
+    mce?: number | null;
+    total_cost?: number;
+    total_examples?: number;
+}
+
+export interface EvalResultResponse {
+    result_id: string;
+    job_id: string;
+    example_id: string;
+    run_id: string;
+    actual_output: string;
+    is_correct: boolean;
+    evaluator_scores: Record<string, number>;
+    confidence?: number | null;
+    created_at: string;
+}
+
+export interface EvalJobReportResponse {
+    job: EvalJobResponse;
+    summary: EvalJobSummary;
+    results: EvalResultResponse[];
+    calibration_data?: any[];
+}
+
+export interface CompareResponse {
+    dataset_id: string;
+    dataset_name: string;
+    jobs: EvalJobResponse[];
+    pareto_frontier: any[];
+    knee_point: any | null;
+    recommendation: string;
+}
+
+export interface AliasHistoryEntry {
+    id: number;
+    prompt_id: string;
+    version_id: number;
+    ordinal: number;
+    promoted_at: string;
+    promoted_by?: string;
+}
+
+export interface DashboardResponse {
+    total_prompts: number;
+    total_versions: number;
+    total_runs: number;
+    total_eval_jobs: number;
+    total_datasets: number;
+    total_cost_usd: number;
+}
+
+// ---------- Helpers ----------
+
+async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
+    const res = await fetch(url, {
+        ...options,
+        headers: {
+            'Content-Type': 'application/json',
+            ...(options?.headers || {}),
+        },
+    });
+    if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`API error ${res.status}: ${text || res.statusText}`);
+    }
+    // Handle 204 No Content
+    if (res.status === 204) return undefined as unknown as T;
+    return res.json() as Promise<T>;
+}
+
+// ---------- Version Control API ----------
+
 export const api = {
-    async getPrompts() {
-        const res = await fetch(`${API_BASE}/prompts`);
-        if (!res.ok) throw new Error('Failed to fetch prompts');
-        return res.json() as Promise<PromptResponse[]>;
+    // Prompts
+    async getPrompts(): Promise<PromptResponse[]> {
+        return apiFetch(`${VC_BASE}/prompts`);
     },
 
-    async createPrompt(key: string, title: string, createdBy: string) {
-        const res = await fetch(`${API_BASE}/prompts`, {
+    async getPrompt(promptId: string): Promise<PromptResponse> {
+        return apiFetch(`${VC_BASE}/prompts/${promptId}`);
+    },
+
+    async createPrompt(key: string, title: string, createdBy: string = 'ui-user'): Promise<PromptResponse> {
+        return apiFetch(`${VC_BASE}/prompts`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ key, title, created_by: createdBy })
+            body: JSON.stringify({ key, title, created_by: createdBy }),
         });
-        if (!res.ok) throw new Error('Failed to create prompt');
-        return res.json() as Promise<PromptResponse>;
     },
 
-    async getVersions(promptId: string) {
-        const res = await fetch(`${API_BASE}/versions/${promptId}/history`);
-        if (!res.ok) throw new Error('Failed to fetch history');
-        const data = await res.json() as VersionResponse[];
-
-        // Adapt to frontend Version interface
-        return data.map(v => ({
-            id: `v${v.ordinal}.0`,
-            db_id: v.version_id, // Store real ID
-            date: new Date(v.created_at).toISOString().split('T')[0],
-            author: 'You', // TODO: Map user ID to name
-            status: v.is_latest ? 'Production' : 'Draft',
-            cost: v.model_settings?.usage?.total_cost ? `$${v.model_settings.usage.total_cost.toFixed(6)}` : 'N/A',
-            accuracy: 'N/A',
-            // Ensure text is string (handle nulls if DB had bad constraint before)
-            text: v.prompt_text || "",
-        })) as Version[];
+    async deletePrompt(promptId: string, permanent = false): Promise<void> {
+        const url = `${VC_BASE}/prompts/${promptId}${permanent ? '?permanent=true' : ''}`;
+        await apiFetch(url, { method: 'DELETE' });
     },
 
-    async createVersion(promptId: string, text: string, createdBy: string, usage?: any) {
-        const res = await fetch(`${API_BASE}/versions`, {
+    async promoteVersion(promptId: string, versionId: number): Promise<any> {
+        return apiFetch(`${VC_BASE}/prompts/${promptId}/promote`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ version_id: versionId }),
+        });
+    },
+
+    async getAliasHistory(promptId: string): Promise<AliasHistoryEntry[]> {
+        return apiFetch(`${VC_BASE}/prompts/${promptId}/alias-history`);
+    },
+
+    // Versions
+    async getVersions(promptId: string): Promise<VersionResponse[]> {
+        return apiFetch(`${VC_BASE}/versions/${promptId}/history`);
+    },
+
+    async getLatestVersion(promptId: string): Promise<VersionResponse> {
+        return apiFetch(`${VC_BASE}/versions/latest/${promptId}`);
+    },
+
+    async createVersion(
+        promptId: string,
+        promptText: string,
+        createdBy: string = 'ui-user',
+        modelSettings?: Record<string, any>
+    ): Promise<VersionResponse> {
+        return apiFetch(`${VC_BASE}/versions`, {
+            method: 'POST',
             body: JSON.stringify({
                 prompt_id: promptId,
-                prompt_text: text,
+                prompt_text: promptText,
                 created_by: createdBy,
-                model_settings: usage ? { usage } : {}
-            })
+                model_settings: modelSettings || {},
+            }),
         });
-        if (!res.ok) throw new Error('Failed to create version');
-        return res.json();
     },
 
-    async runSimulation(text: string, provider: string = 'gemini', model: string = 'gemini-flash-latest') {
-        const res = await fetch(`${API_BASE}/simulate`, {
+    // Trash
+    async getTrashedPrompts(): Promise<PromptResponse[]> {
+        return apiFetch(`${VC_BASE}/prompts/trash/all`);
+    },
+
+    async restorePrompt(promptId: string): Promise<any> {
+        return apiFetch(`${VC_BASE}/prompts/${promptId}/restore`, { method: 'POST' });
+    },
+
+    // Execution
+    async executePrompt(promptKey: string, variables: Record<string, any> = {}): Promise<RunResponse> {
+        return apiFetch(`${EXEC_BASE}/execute/${promptKey}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ variables }),
+        });
+    },
+
+    // ---------- Eval API ----------
+
+    // Datasets
+    async getDatasets(): Promise<DatasetResponse[]> {
+        return apiFetch(`${EVAL_BASE}/datasets`);
+    },
+
+    async getDataset(datasetId: string): Promise<DatasetResponse> {
+        return apiFetch(`${EVAL_BASE}/datasets/${datasetId}`);
+    },
+
+    async createDataset(name: string, description: string, taskType: string): Promise<DatasetResponse> {
+        return apiFetch(`${EVAL_BASE}/datasets`, {
+            method: 'POST',
+            body: JSON.stringify({ name, description, task_type: taskType }),
+        });
+    },
+
+    async deleteDataset(datasetId: string): Promise<void> {
+        await apiFetch(`${EVAL_BASE}/datasets/${datasetId}`, { method: 'DELETE' });
+    },
+
+    async getExamples(datasetId: string): Promise<ExampleResponse[]> {
+        return apiFetch(`${EVAL_BASE}/datasets/${datasetId}/examples`);
+    },
+
+    async addExample(datasetId: string, inputVars: Record<string, any>, expectedOutput: string): Promise<ExampleResponse> {
+        return apiFetch(`${EVAL_BASE}/datasets/${datasetId}/examples`, {
+            method: 'POST',
+            body: JSON.stringify({ input_variables: inputVars, expected_output: expectedOutput }),
+        });
+    },
+
+    async deleteExample(exampleId: string): Promise<void> {
+        await apiFetch(`${EVAL_BASE}/examples/${exampleId}`, { method: 'DELETE' });
+    },
+
+    // Eval Jobs
+    async getEvalJobs(): Promise<EvalJobResponse[]> {
+        return apiFetch(`${EVAL_BASE}/jobs`);
+    },
+
+    async getEvalJob(jobId: string): Promise<EvalJobResponse> {
+        return apiFetch(`${EVAL_BASE}/jobs/${jobId}`);
+    },
+
+    async createEvalJob(
+        promptId: string,
+        versionId: number,
+        datasetId: string,
+        evaluators: string[]
+    ): Promise<EvalJobResponse> {
+        return apiFetch(`${EVAL_BASE}/jobs`, {
+            method: 'POST',
             body: JSON.stringify({
-                prompt_text: text,
-                provider,
-                model
-            })
+                prompt_id: promptId,
+                version_id: versionId,
+                dataset_id: datasetId,
+                evaluators,
+            }),
         });
-        if (!res.ok) throw new Error("Simulation failed");
-        return res.json() as Promise<SimulationResponse>;
     },
 
-    async deleteVersion(versionId: number, permanent = false) {
-        const url = `${API_BASE}/versions/${versionId}${permanent ? '?permanent=true' : ''}`;
-        const res = await fetch(url, { method: 'DELETE' });
-        if (!res.ok) throw new Error("Failed to delete version");
+    async getEvalJobReport(jobId: string): Promise<EvalJobReportResponse> {
+        return apiFetch(`${EVAL_BASE}/jobs/${jobId}/report`);
     },
 
-    async deletePrompt(promptId: string, permanent = false) {
-        const url = `${API_BASE}/prompts/${promptId}${permanent ? '?permanent=true' : ''}`;
-        const res = await fetch(url, { method: 'DELETE' });
-        if (!res.ok) throw new Error("Failed to delete prompt");
+    // Comparison & Dashboard
+    async getCompare(datasetId: string): Promise<CompareResponse> {
+        return apiFetch(`${EVAL_BASE}/compare/dataset/${datasetId}`);
     },
 
-    async updatePrompt(promptId: string, title: string) {
-        // We reuse PromptCreate schema structure (key, title, created_by)
-        // Ideally should have a specific PATCH schema, but this works if we pass dummy data for others
-        const res = await fetch(`${API_BASE}/prompts/${promptId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                title,
-                key: "ignored",
-                created_by: "00000000-0000-0000-0000-000000000000"
-            })
-        });
-        if (!res.ok) throw new Error("Failed to update prompt");
-        return res.json();
+    async getDashboard(): Promise<DashboardResponse> {
+        return apiFetch(`${EVAL_BASE}/dashboard`);
     },
 
-    async getTrashedPrompts() {
-        const res = await fetch(`${API_BASE}/prompts/trash/all`);
-        if (!res.ok) throw new Error("Failed to fetch trash");
-        return res.json() as Promise<PromptResponse[]>;
+    async getLeaderboard(datasetId: string): Promise<any[]> {
+        return apiFetch(`${EVAL_BASE}/datasets/${datasetId}/leaderboard`);
     },
 
-    async restorePrompt(promptId: string) {
-        const res = await fetch(`${API_BASE}/prompts/${promptId}/restore`, {
-            method: 'POST'
-        });
-        if (res.status === 409) throw new Error("Key conflict: Active prompt exists");
-        if (!res.ok) throw new Error("Failed to restore prompt");
-        return res.json();
+    // Runs (from execution module)
+    async getRuns(): Promise<RunResponse[]> {
+        return apiFetch(`${EXEC_BASE}/runs`);
     },
 
-    async getTrashedVersions() {
-        const res = await fetch(`${API_BASE}/versions/trash/all`);
-        if (!res.ok) throw new Error("Failed to fetch trash");
-        return res.json() as Promise<VersionResponse[]>;
+    // Health
+    async getHealth(): Promise<{ status: string }> {
+        return apiFetch('/health');
     },
-
-    async restoreVersion(versionId: number) {
-        const res = await fetch(`${API_BASE}/versions/${versionId}/restore`, {
-            method: 'POST'
-        });
-        if (!res.ok) throw new Error("Failed to restore version");
-        return res.json();
-    }
 };
