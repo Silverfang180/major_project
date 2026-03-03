@@ -36,3 +36,9 @@ This file tracks the iterations and updates made to the Chronicle CLI.
 
 ## Iteration 8: Improved Execute Command Logic (Feb 20, 2026)
 - **Robust Execution Path:** Fully rebuilt `chronicle_cli/commands/execute.py` to resolve prompt keys correctly, handle missing production versions safely, parse `{{variables}}` accurately, request them dynamically using `rich.prompt`, and render telemetry (latency, tokens, cost) elegantly within a styled `rich.Panel`.
+
+## Iteration 9: Eval Commands & Pareto Comparison (Mar 2026)
+- **Evaluation Subcommands:** Created `chronicle_cli/commands/eval.py` to handle Phase 2 evaluation flows directly from the CLI. Includes five sub-commands: `datasets`, `run`, `status`, `report`, and `compare`.
+- **Interactive Eval Job Runner:** Built an interactive prompt, version, dataset, and evaluator selection wizard using `rich.prompt` and asynchronous REST calls inside `chronicle eval run`.
+- **Live Watcher:** Engineered a continuous spinner `rich.live.Live` with `poll` capability for `chronicle eval status --watch`.
+- **ASCII Data Viz & Pareto Reporting:** Implemented rich dataset reporting spanning three visual panels, including a fully calculated text-based Pareto graph mapping cost against accuracy.

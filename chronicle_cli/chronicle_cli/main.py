@@ -11,6 +11,7 @@ from chronicle_cli.commands.use import use_env
 from chronicle_cli.commands.list import list_prompts
 from chronicle_cli.commands.versions import list_versions
 from chronicle_cli.commands.execute import execute_command
+from chronicle_cli.commands.eval import eval_app
 from chronicle_cli.config import get_current_context
 
 console = Console()
@@ -26,6 +27,7 @@ app.command(name="use", help="Switch environments")(use_env)
 app.command(name="list", help="List all prompts")(list_prompts)
 app.command(name="versions", help="Show version history for a prompt")(list_versions)
 app.command(name="execute", help="Execute a prompt with variables")(execute_command)
+app.add_typer(eval_app, name="eval")
 
 BLOCK_LOGO = """
 [#0ea5e9]██████╗ ██╗  ██╗██████╗  ██████╗ ███╗   ██╗██╗ ██████╗██╗     ███████╗[/#0ea5e9]
@@ -61,7 +63,8 @@ def main(ctx: typer.Context):
         console.print("  [bold #0ea5e9]use[/bold #0ea5e9]         Switch environments")
         console.print("  [bold #0ea5e9]list[/bold #0ea5e9]        List all prompts")
         console.print("  [bold #0ea5e9]versions[/bold #0ea5e9]    Show version history")
-        console.print("  [bold #0ea5e9]execute[/bold #0ea5e9]     Run a prompt with variables\n")
+        console.print("  [bold #0ea5e9]execute[/bold #0ea5e9]     Run a prompt with variables")
+        console.print("  [bold #0ea5e9]eval[/bold #0ea5e9]        Manage evaluations, status, and reporting\n")
         
         context = get_current_context()
         if not context:

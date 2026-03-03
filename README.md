@@ -77,8 +77,20 @@ chronicle/
 │   ├── phase1-implementation-status.md
 │   └── testing-guide.md
 ├── evaluation/              # Eval pipelines, metrics, Pareto computation
+│   ├── evaluators.py        #   Exact match, LLM Judge, and Confidence calcs
+│   ├── metrics.py           #   Pareto frontier logic and geometric knee points
+│   ├── models.py            #   Evaluation schemas for the database
+│   ├── orchestrator.py      #   Background task runner and rollback logic
+│   ├── routes.py            #   API endpoints for executing tests and fetching scores
+│   └── schemas.py           #   Data validation for eval API requests
 ├── synthetic/               # Synthetic data generation and validation
-└── tests/                   # 145 integration + unit tests
+│   ├── cli.py               #   Command-line hooks for synthetic job execution
+│   ├── config.py            #   YAML configuration parsing logic
+│   ├── diversity.py         #   Jaccard similarity calculation for deduplication
+│   ├── generator.py         #   Primary generator model LLM logic
+│   ├── prompts.py           #   System prompts utilized strictly for synthesizing
+│   └── validator.py         #   Secondary model grading logic ensuring output schema
+└── tests/                   # 183 integration + unit tests
 ```
 
 ---
@@ -157,6 +169,11 @@ Chronicle now includes a fully-featured Command Line Interface (CLI) to manage t
 - **`list`**: List all available prompts natively.
 - **`versions`**: Show the version history for specific prompts.
 - **`execute`**: Run a prompt with injected variables straight from the terminal.
+- **`eval datasets`**: List all evaluation datasets with task type and example counts.
+- **`eval run`**: Launch an eval job interactively or via flags (`--prompt`, `--version`, `--dataset`, `--evaluators`).
+- **`eval status <job-id>`**: Check job status with optional `--watch` for live polling.
+- **`eval report <job-id>`**: View full job report — summary metrics, results table, and calibration data.
+- **`eval compare <dataset-id>`**: Pareto frontier analysis with recommendation panel, ranked table, and ASCII scatter plot.
 
 ---
 
@@ -298,7 +315,7 @@ docker-compose up --build
 ## Testing
 
 ```powershell
-# Run all 145 tests
+# Run all 183 tests
 .venv\Scripts\python.exe -m pytest -v
 
 # Run a specific section

@@ -220,16 +220,19 @@ def compute_pareto_frontier(summaries: list[EvalSummary]) -> list[dict]:
         for j, other in enumerate(placeable_dicts):
             if i == j:
                 continue
-            # Does `other` dominate `candidate`?
-            # other dominates candidate if other is cheaper AND more accurate
-            if (other["cost_per_correct"] < candidate["cost_per_correct"]
-                    and other["accuracy"] > candidate["accuracy"]):
+            # other dominates candidate if other is cheaper or equally cheap AND more accurate or equally accurate (strictly better in at least one)
+            if (other["cost_per_correct"] <= candidate["cost_per_correct"]
+                    and other["accuracy"] >= candidate["accuracy"]
+                    and (other["cost_per_correct"] < candidate["cost_per_correct"] or other["accuracy"] > candidate["accuracy"])):
                 candidate["dominated_by"].append(other["job_id"])
                 other["dominates"].append(candidate["job_id"])
 
-    # Mark Pareto-optimal: not dominated by anyone
+    # Mark Pareto-optimal: not dominated by anyone, and accuracy > 0.0
     for d in placeable_dicts:
-        d["is_pareto_optimal"] = len(d["dominated_by"]) == 0
+        if d["accuracy"] == 0.0:
+            d["is_pareto_optimal"] = False
+        else:
+            d["is_pareto_optimal"] = len(d["dominated_by"]) == 0
 
     # Remove duplicate job_ids in dominates/dominated_by lists (can accumulate from two loops)
     for d in placeable_dicts:
@@ -360,7 +363,7 @@ def generate_recommendation(
         else:
             cost_delta = round(top_cost / knee_cost, 1)
 
-        return f"Version {knee_point['version_id']} on {knee_point['model']} offers the best cost-accuracy balance (knee point). Recommended for production unless accuracy above {knee_acc:.0%} is required, in which case version {top_acc_pt['version_id']} achieves {top_acc:.0%} at {cost_delta}x the cost."
+        return f"Version {knee_point['version_id']} on {knee_point['model']} offers the best cost-accuracy balance (knee point). Recommended for production unless accuracy above {knee_acc:.0%} is required, in which case Version {top_acc_pt['version_id']} achieves {top_acc:.0%} at {cost_delta}x the cost."
 
     if len(pareto_points) == 2:
         p1, p2 = pareto_points
