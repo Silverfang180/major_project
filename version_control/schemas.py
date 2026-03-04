@@ -14,11 +14,11 @@ class PromptBase(BaseModel):
 
 class PromptCreate(PromptBase):
     key: str | None = None
-    created_by: UUID
+    created_by: str = Field(min_length=1, max_length=64)
 
 class PromptRead(PromptBase):
     prompt_id: UUID
-    created_by: UUID
+    created_by: str
     created_at: datetime
     updated_at: Optional[datetime] = None
     deleted_at: Optional[datetime] = None
@@ -37,13 +37,13 @@ class VersionBase(BaseModel):
 
 class VersionCreate(VersionBase):
     prompt_id: UUID
-    created_by: UUID
+    created_by: str = Field(min_length=1, max_length=64)
 
 class VersionRead(VersionBase):
     version_id: int
     prompt_id: UUID
     ordinal: int
-    created_by: UUID
+    created_by: str
     created_at: datetime
     deleted_at: Optional[datetime] = None
     is_latest: bool

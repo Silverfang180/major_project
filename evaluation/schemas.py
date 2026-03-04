@@ -27,7 +27,7 @@ class ExampleCreate(BaseModel):
     source_tag: Optional[str] = None
 
 class ExampleResponse(BaseModel):
-    example_id: UUID
+    example_id: int
     dataset_id: UUID
     input_vars: Dict[str, Any]
     expected_output: str

@@ -154,9 +154,9 @@ export function DatasetsPage() {
                         <tr><td colSpan={3} className="px-4 py-8 text-center text-slate-500 text-sm">No examples. Add one to get started.</td></tr>
                       ) : examples.map((ex) => (
                         <tr key={ex.example_id} className="border-b border-slate-700/30 hover:bg-slate-800/50 transition-colors">
-                          <td className="px-4 py-3 text-[0.8125rem] text-slate-300 font-mono">{ex.example_id.slice(0, 8)}</td>
+                          <td className="px-4 py-3 text-[0.8125rem] text-slate-300 font-mono">{String(ex.example_id)}</td>
                           <td className="px-4 py-3">
-                            <pre className="text-[0.75rem] text-indigo-300 bg-slate-800 rounded px-2 py-1 max-w-xs truncate">{JSON.stringify(ex.input_variables)}</pre>
+                            <pre className="text-[0.75rem] text-indigo-300 bg-slate-800 rounded px-2 py-1 max-w-xs truncate">{JSON.stringify(ex.input_vars)}</pre>
                           </td>
                           <td className="px-4 py-3 text-[0.8125rem] text-slate-300 max-w-xs truncate">{ex.expected_output}</td>
                         </tr>

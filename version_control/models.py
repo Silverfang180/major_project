@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from sqlalchemy import (
-    BigInteger, Boolean, Column, DateTime, ForeignKey, Integer, Text, 
+    BigInteger, Boolean, Column, DateTime, ForeignKey, Integer, Text, String,
     UniqueConstraint, Index, CheckConstraint
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB
@@ -21,7 +21,7 @@ class Prompt(Base):
     key = Column(Text, nullable=False)
     title = Column(Text, nullable=False)
     description = Column(Text, nullable=True)
-    created_by = Column(UUID(as_uuid=True), nullable=False)
+    created_by = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
@@ -58,7 +58,7 @@ class PromptVersion(Base):
     prompt_text = Column(Text, nullable=False)
     model_settings = Column(JSONB, nullable=False, default=dict)
     change_note = Column(Text)
-    created_by = Column(UUID(as_uuid=True), nullable=False)
+    created_by = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), default=func.now(), nullable=False)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     is_latest = Column(Boolean, default=False, nullable=False)

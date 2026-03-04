@@ -1,9 +1,45 @@
 // Chronicle API Client
-// All calls go through the Vite proxy (/api -> http://localhost:8000/api)
+// All calls go through the Vite proxy (/api -> http://127.0.0.1:8000/api)
 
 const VC_BASE = '/api/v1/version-control';
 const EXEC_BASE = '/api/v1';
 const EVAL_BASE = '/api/v1/eval';
+
+// ---------- SHA-256 Identity ----------
+
+async function sha256(message: string): Promise<string> {
+    const msgBuffer = new TextEncoder().encode(message);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+let _cachedIdentity: string | null = null;
+
+async function getIdentity(): Promise<string> {
+    if (_cachedIdentity) return _cachedIdentity;
+
+    // Check localStorage for a previously generated identity
+    const stored = localStorage.getItem('chronicle-identity');
+    if (stored && stored.length === 64) {
+        _cachedIdentity = stored;
+        return stored;
+    }
+
+    // Generate a fingerprint from browser environment
+    const fingerprint = [
+        navigator.userAgent,
+        screen.width + 'x' + screen.height,
+        Intl.DateTimeFormat().resolvedOptions().timeZone,
+        new Date().getTimezoneOffset().toString(),
+        crypto.randomUUID(),  // ensures uniqueness per device
+    ].join('|');
+
+    const hash = await sha256(fingerprint);
+    localStorage.setItem('chronicle-identity', hash);
+    _cachedIdentity = hash;
+    return hash;
+}
 
 // ---------- Types ----------
 
@@ -63,10 +99,11 @@ export interface DatasetResponse {
 }
 
 export interface ExampleResponse {
-    example_id: string;
+    example_id: number;
     dataset_id: string;
-    input_variables: Record<string, any>;
+    input_vars: Record<string, any>;
     expected_output: string;
+    source_tag?: string | null;
     created_at: string;
     deleted_at?: string | null;
 }
@@ -149,6 +186,7 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
         ...options,
         headers: {
             'Content-Type': 'application/json',
+            'X-API-Key': 'chronicle-dev-key',
             ...(options?.headers || {}),
         },
     });
@@ -173,10 +211,11 @@ export const api = {
         return apiFetch(`${VC_BASE}/prompts/${promptId}`);
     },
 
-    async createPrompt(key: string, title: string, createdBy: string = 'ui-user'): Promise<PromptResponse> {
+    async createPrompt(key: string, title: string, createdBy?: string): Promise<PromptResponse> {
+        const identity = createdBy || await getIdentity();
         return apiFetch(`${VC_BASE}/prompts`, {
             method: 'POST',
-            body: JSON.stringify({ key, title, created_by: createdBy }),
+            body: JSON.stringify({ key, title, created_by: identity }),
         });
     },
 
@@ -208,15 +247,16 @@ export const api = {
     async createVersion(
         promptId: string,
         promptText: string,
-        createdBy: string = 'ui-user',
+        createdBy?: string,
         modelSettings?: Record<string, any>
     ): Promise<VersionResponse> {
+        const identity = createdBy || await getIdentity();
         return apiFetch(`${VC_BASE}/versions`, {
             method: 'POST',
             body: JSON.stringify({
                 prompt_id: promptId,
                 prompt_text: promptText,
-                created_by: createdBy,
+                created_by: identity,
                 model_settings: modelSettings || {},
             }),
         });
@@ -251,9 +291,10 @@ export const api = {
     },
 
     async createDataset(name: string, description: string, taskType: string): Promise<DatasetResponse> {
+        const identity = await getIdentity();
         return apiFetch(`${EVAL_BASE}/datasets`, {
             method: 'POST',
-            body: JSON.stringify({ name, description, task_type: taskType }),
+            body: JSON.stringify({ name, description, task_type: taskType, created_by: identity }),
         });
     },
 
@@ -268,7 +309,7 @@ export const api = {
     async addExample(datasetId: string, inputVars: Record<string, any>, expectedOutput: string): Promise<ExampleResponse> {
         return apiFetch(`${EVAL_BASE}/datasets/${datasetId}/examples`, {
             method: 'POST',
-            body: JSON.stringify({ input_variables: inputVars, expected_output: expectedOutput }),
+            body: JSON.stringify({ input_vars: inputVars, expected_output: expectedOutput }),
         });
     },
 

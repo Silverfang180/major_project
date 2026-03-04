@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Text, Integer, ForeignKey, TIMESTAMP, JSON, CheckConstraint, Enum, Float, Boolean, UniqueConstraint, Index
+from sqlalchemy import Column, Text, Integer, BigInteger, ForeignKey, TIMESTAMP, JSON, CheckConstraint, Enum, Float, Boolean, UniqueConstraint, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
@@ -33,7 +33,7 @@ class Dataset(Base):
 class DatasetExample(Base):
     __tablename__ = "dataset_examples"
 
-    example_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    example_id = Column(BigInteger, primary_key=True, autoincrement=True)
     dataset_id = Column(UUID(as_uuid=True), ForeignKey("datasets.dataset_id", ondelete="CASCADE"), nullable=False, index=True)
     input_vars = Column(JSON, nullable=False)
     expected_output = Column(Text, nullable=False)

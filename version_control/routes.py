@@ -82,7 +82,7 @@ async def list_prompts(
     db: AsyncSession = Depends(get_session),
     limit: int = Query(default=50, le=100, ge=1),
     offset: int = Query(default=0, ge=0),
-    created_by: Optional[UUID] = Query(default=None)
+    created_by: Optional[str] = Query(default=None)
 ):
     """List prompts with their latest version."""
     stmt = select(Prompt).options(
