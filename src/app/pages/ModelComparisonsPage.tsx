@@ -70,7 +70,7 @@ export function ModelComparisonsPage() {
             <ChartCard title="Accuracy & Cost by Prompt Model" subtitle="Aggregated scores across evaluations">
               <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data.jobs.map((j: any) => ({ name: `${j.prompt_key}-v${j.version_id}`, Accuracy: j.summary.accuracy * 100, CostScore: 100 - (j.summary.cost_per_correct * 1000) }))} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <BarChart data={data.jobs.map((j: any) => ({ name: `${j.model} (v${j.version_id})`, Accuracy: j.accuracy * 100, CostScore: 100 - (j.cost_per_correct * 100) }))} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                     <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />

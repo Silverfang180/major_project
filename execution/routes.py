@@ -32,6 +32,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Execution"])
 
 
+@router.get("/runs")
+async def list_runs(db: AsyncSession = Depends(get_session)):
+    from execution.schemas import RunRead
+    stmt = select(Run).order_by(Run.created_at.desc()).limit(100)
+    result = await db.execute(stmt)
+    runs = result.scalars().all()
+    return [RunRead.model_validate(r) for r in runs]
+
+
 @router.post("/execute/{prompt_key}", response_model=ExecuteResponse)
 async def execute_prompt(
     prompt_key: str,

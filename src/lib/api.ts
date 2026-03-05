@@ -16,7 +16,8 @@ async function sha256(message: string): Promise<string> {
 
 let _cachedIdentity: string | null = null;
 
-async function getIdentity(): Promise<string> {
+// Generate or retrieve a persistent identity hash based on browser fingerprint
+export async function getIdentity(): Promise<string> {
     if (_cachedIdentity) return _cachedIdentity;
 
     // Check localStorage for a previously generated identity
@@ -69,19 +70,14 @@ export interface VersionResponse {
 }
 
 export interface RunResponse {
-    run_id: string;
-    prompt_id: string;
+    run_id: number;
     prompt_key: string;
     version_id: number;
-    ordinal?: number;
     status: 'pending' | 'success' | 'error';
     model: string;
-    input_variables?: Record<string, any>;
+    input_vars?: Record<string, any>;
     rendered_prompt?: string;
-    output?: string;
-    input_tokens?: number;
-    output_tokens?: number;
-    total_tokens?: number;
+    raw_response?: Record<string, any>;
     cost_usd?: number | null;
     latency_ms?: number;
     error_detail?: string;
@@ -332,6 +328,7 @@ export const api = {
         datasetId: string,
         evaluators: string[]
     ): Promise<EvalJobResponse> {
+        const identity = await getIdentity();
         return apiFetch(`${EVAL_BASE}/jobs`, {
             method: 'POST',
             body: JSON.stringify({
@@ -339,6 +336,7 @@ export const api = {
                 version_id: versionId,
                 dataset_id: datasetId,
                 evaluators,
+                created_by: identity,
             }),
         });
     },
@@ -362,7 +360,12 @@ export const api = {
 
     // Runs (from execution module)
     async getRuns(): Promise<RunResponse[]> {
-        return apiFetch(`${EXEC_BASE}/runs`);
+        const raw: any[] = await apiFetch(`${EXEC_BASE}/runs`);
+        return raw.map(r => ({
+            ...r,
+            model: r.raw_response?.model || 'unknown',
+            error_detail: r.error_message || undefined,
+        }));
     },
 
     // Health

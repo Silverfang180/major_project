@@ -3,7 +3,7 @@ import { Topbar } from "../components/layout/Topbar";
 import { Badge } from "../components/shared/Badge";
 import { Modal } from "../components/shared/Modal";
 import { Plus, Search, Filter, ChevronRight, Copy, Loader2 } from "lucide-react";
-import { api, type PromptResponse, type VersionResponse } from "../../lib/api";
+import { api, getIdentity, type PromptResponse, type VersionResponse } from "../../lib/api";
 
 export function PromptsPage() {
   const [prompts, setPrompts] = useState<PromptResponse[]>([]);
@@ -60,9 +60,10 @@ export function PromptsPage() {
   async function handleCreatePrompt() {
     if (!newKey.trim() || !newTitle.trim()) return;
     try {
-      const prompt = await api.createPrompt(newKey.trim(), newTitle.trim());
+      const identity = await getIdentity();
+      const prompt = await api.createPrompt(newKey.trim(), newTitle.trim(), identity);
       if (newPromptText.trim()) {
-        await api.createVersion(prompt.prompt_id, newPromptText.trim());
+        await api.createVersion(prompt.prompt_id, newPromptText.trim(), identity);
       }
       setCreateOpen(false);
       setNewKey("");

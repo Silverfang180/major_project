@@ -79,12 +79,12 @@ export function ABTestsPage() {
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <Badge variant="neutral">Variant A</Badge>
-                      <h3 className="text-white font-medium">{data.jobs[0].prompt_key}</h3>
+                      <h3 className="text-white font-medium">{data.jobs[0].model}</h3>
                     </div>
                     <p className="text-slate-400 text-sm">Version {data.jobs[0].version_id}</p>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl font-semibold text-white">{(data.jobs[0].summary.accuracy * 100).toFixed(1)}%</div>
+                    <div className="text-2xl font-semibold text-white">{((data.jobs[0].accuracy || 0) * 100).toFixed(1)}%</div>
                     <div className="text-slate-500 text-xs mt-1">Accuracy</div>
                   </div>
                 </div>
@@ -93,7 +93,7 @@ export function ABTestsPage() {
                   <div>
                     <div className="flex justify-between text-xs mb-1.5">
                       <span className="text-slate-400">Cost Efficiency</span>
-                      <span className="text-slate-300 font-medium">${data.jobs[0].summary.cost_per_correct?.toFixed(4)}/correct</span>
+                      <span className="text-slate-300 font-medium">${data.jobs[0].cost_per_correct?.toFixed(4)}/correct</span>
                     </div>
                     <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
                       <div className="h-full bg-indigo-500 w-[65%]" />
@@ -102,7 +102,7 @@ export function ABTestsPage() {
                   <div>
                     <div className="flex justify-between text-xs mb-1.5">
                       <span className="text-slate-400">P50 Latency</span>
-                      <span className="text-slate-300 font-medium">{data.jobs[0].summary.p50_latency_ms}ms</span>
+                      <span className="text-slate-300 font-medium">{data.jobs[0].p50_latency_ms}ms</span>
                     </div>
                     <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
                       <div className="h-full bg-indigo-400 w-[80%]" />
@@ -117,12 +117,12 @@ export function ABTestsPage() {
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <Badge variant="success">Variant B</Badge>
-                      <h3 className="text-white font-medium">{data.jobs[1].prompt_key}</h3>
+                      <h3 className="text-white font-medium">{data.jobs[1].model}</h3>
                     </div>
                     <p className="text-slate-400 text-sm">Version {data.jobs[1].version_id}</p>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl font-semibold text-emerald-400">{(data.jobs[1].summary.accuracy * 100).toFixed(1)}%</div>
+                    <div className="text-2xl font-semibold text-emerald-400">{((data.jobs[1].accuracy || 0) * 100).toFixed(1)}%</div>
                     <div className="text-emerald-500/70 text-xs mt-1">Accuracy</div>
                   </div>
                 </div>
@@ -131,7 +131,7 @@ export function ABTestsPage() {
                   <div>
                     <div className="flex justify-between text-xs mb-1.5">
                       <span className="text-slate-400">Cost Efficiency</span>
-                      <span className="text-slate-300 font-medium">${data.jobs[1].summary.cost_per_correct?.toFixed(4)}/correct</span>
+                      <span className="text-slate-300 font-medium">${data.jobs[1].cost_per_correct?.toFixed(4)}/correct</span>
                     </div>
                     <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
                       <div className="h-full bg-emerald-500 w-[85%]" />
@@ -140,7 +140,7 @@ export function ABTestsPage() {
                   <div>
                     <div className="flex justify-between text-xs mb-1.5">
                       <span className="text-slate-400">P50 Latency</span>
-                      <span className="text-slate-300 font-medium">{data.jobs[1].summary.p50_latency_ms}ms</span>
+                      <span className="text-slate-300 font-medium">{data.jobs[1].p50_latency_ms}ms</span>
                     </div>
                     <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
                       <div className="h-full bg-emerald-400 w-[60%]" />
@@ -155,9 +155,9 @@ export function ABTestsPage() {
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <RadarChart cx="50%" cy="50%" outerRadius="70%" data={[
-                      { metric: 'Accuracy', A: data.jobs[0].summary.accuracy * 100, B: data.jobs[1].summary.accuracy * 100 },
-                      { metric: 'Cost Eff', A: 100 - (data.jobs[0].summary.cost_per_correct * 1000), B: 100 - (data.jobs[1].summary.cost_per_correct * 1000) },
-                      { metric: 'Speed', A: 1000 - data.jobs[0].summary.p50_latency_ms, B: 1000 - data.jobs[1].summary.p50_latency_ms }
+                      { metric: 'Accuracy', A: (data.jobs[0].accuracy || 0) * 100, B: (data.jobs[1].accuracy || 0) * 100 },
+                      { metric: 'Cost Eff', A: 100 - ((data.jobs[0].cost_per_correct || 0) * 100), B: 100 - ((data.jobs[1].cost_per_correct || 0) * 100) },
+                      { metric: 'Speed', A: 1000 - (data.jobs[0].p50_latency_ms || 0), B: 1000 - (data.jobs[1].p50_latency_ms || 0) }
                     ]}>
                       <PolarGrid stroke="#334155" />
                       <PolarAngleAxis dataKey="metric" tick={{ fill: '#94a3b8', fontSize: 12 }} />
@@ -177,7 +177,7 @@ export function ABTestsPage() {
                   <div>
                     <h4 className="text- emerald-400 font-medium text-sm mb-1">Variant B is recommended</h4>
                     <p className="text-slate-400 text-[0.8125rem] leading-relaxed">
-                      {data.recommendation || `Variant B achieved ${(data.jobs[1].summary.accuracy * 100).toFixed(1)}% accuracy compared to Variant A's ${(data.jobs[0].summary.accuracy * 100).toFixed(1)}%, while maintaining a lower cost per correct answer.`}
+                      {data.recommendation || `Variant B achieved ${((data.jobs[1].accuracy || 0) * 100).toFixed(1)}% accuracy compared to Variant A's ${((data.jobs[0].accuracy || 0) * 100).toFixed(1)}%, while maintaining a lower cost per correct answer.`}
                     </p>
                   </div>
                 </div>

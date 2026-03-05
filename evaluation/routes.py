@@ -198,6 +198,16 @@ from .models import EvalJob, EvalResult, JobStatus
 from .schemas import EvalJobCreate, EvalJobResponse, EvalResultResponse
 from .orchestrator import run_eval_job
 
+@router.get("/jobs", response_model=List[EvalJobResponse])
+async def list_jobs(db: AsyncSession = Depends(get_session)):
+    stmt = select(EvalJob).order_by(EvalJob.created_at.desc())
+    result = await db.execute(stmt)
+    jobs = result.scalars().all()
+    return [
+        EvalJobResponse.model_validate({**j.__dict__, "status": j.status})
+        for j in jobs
+    ]
+
 @router.post("/jobs", response_model=EvalJobResponse, status_code=201)
 async def create_job(
     payload: EvalJobCreate,
@@ -239,8 +249,8 @@ async def get_job(job_id: UUID, db: AsyncSession = Depends(get_session)):
     job = await db.get(EvalJob, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="EvalJob not found")
-    # Cast enum to str for response
-    return {**job.__dict__, "status": job.status.value}
+    # status is already a plain string
+    return {**job.__dict__, "status": job.status}
 
 @router.get("/jobs/{job_id}/results", response_model=List[EvalResultResponse])
 async def get_job_results(job_id: UUID, db: AsyncSession = Depends(get_session)):
@@ -292,7 +302,7 @@ async def trigger_evaluate(
     if not job:
         raise HTTPException(status_code=404, detail="EvalJob not found")
 
-    if job.status != JobStatus.completed:
+    if job.status != "completed":
         raise HTTPException(
             status_code=400,
             detail="Job must be completed before evaluation",
@@ -375,7 +385,7 @@ async def recompute_job_summary(
     if not job:
         raise HTTPException(status_code=404, detail="EvalJob not found")
 
-    if job.status != JobStatus.completed:
+    if job.status != "completed":
         raise HTTPException(
             status_code=400,
             detail="Job must be completed before computing summary",
@@ -573,43 +583,24 @@ async def auto_compare_dataset(dataset_id: UUID, db: AsyncSession = Depends(get_
 
 @router.get("/dashboard", response_model=DashboardResponse)
 async def get_dashboard(db: AsyncSession = Depends(get_session)):
-    from .models import Dataset, EvalJob, DatasetExample, EvalSummary, JobStatus
+    from .models import Dataset, EvalJob
+    from version_control.models import Prompt, PromptVersion
+    from execution.models import Run
     
+    total_prompts = (await db.execute(select(func.count(Prompt.prompt_id)))).scalar() or 0
+    total_versions = (await db.execute(select(func.count(PromptVersion.version_id)))).scalar() or 0
+    total_runs = (await db.execute(select(func.count(Run.run_id)))).scalar() or 0
+    total_eval_jobs = (await db.execute(select(func.count(EvalJob.job_id)))).scalar() or 0
     total_datasets = (await db.execute(select(func.count(Dataset.dataset_id)))).scalar() or 0
-    total_jobs = (await db.execute(select(func.count(EvalJob.job_id)))).scalar() or 0
-    total_examples = (await db.execute(select(func.count(DatasetExample.example_id)))).scalar() or 0
-    
-    completed_jobs = (await db.execute(select(func.count(EvalJob.job_id)).where(EvalJob.status == JobStatus.completed))).scalar() or 0
-    failed_jobs = (await db.execute(select(func.count(EvalJob.job_id)).where(EvalJob.status == JobStatus.failed))).scalar() or 0
-    
-    stmt = select(EvalJob).order_by(EvalJob.created_at.desc()).limit(5)
-    recent_jobs = list((await db.execute(stmt)).scalars().all())
-    
-    stmt2 = select(EvalSummary).where(EvalSummary.accuracy.is_not(None)).order_by(EvalSummary.accuracy.desc()).limit(5)
-    top_summaries_rows = list((await db.execute(stmt2)).scalars().all())
-    
-    top_summaries = [
-        {
-            "job_id": str(s.job_id),
-            "version_id": s.version_id,
-            "model": s.model,
-            "accuracy": s.accuracy,
-            "cost_per_correct": s.cost_per_correct,
-            "dataset_id": str(s.dataset_id)
-        }
-        for s in top_summaries_rows
-    ]
-    
-    recent_jobs_resp = [{**j.__dict__, "status": j.status.value} for j in recent_jobs]
+    total_cost = (await db.execute(select(func.coalesce(func.sum(Run.cost_usd), 0.0)))).scalar() or 0.0
     
     return {
+        "total_prompts": total_prompts,
+        "total_versions": total_versions,
+        "total_runs": total_runs,
+        "total_eval_jobs": total_eval_jobs,
         "total_datasets": total_datasets,
-        "total_jobs": total_jobs,
-        "total_examples": total_examples,
-        "completed_jobs": completed_jobs,
-        "failed_jobs": failed_jobs,
-        "recent_jobs": recent_jobs_resp,
-        "top_summaries": top_summaries
+        "total_cost_usd": float(total_cost),
     }
 
 @router.get("/jobs/{job_id}/report")
@@ -670,7 +661,7 @@ async def get_job_report(job_id: UUID, db: AsyncSession = Depends(get_session)):
         }
         
     return {
-        "job": {**job.__dict__, "status": job.status.value},
+        "job": {**job.__dict__, "status": job.status},
         "summary": sum_dict,
         "meta": meta_dict,
         "results": results,

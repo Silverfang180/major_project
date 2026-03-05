@@ -41,6 +41,7 @@ class RunRead(BaseModel):
     latency_ms: int
     status: str
     error_message: Optional[str] = None
+    cost_usd: Optional[float] = None
     created_at: datetime
     
     model_config = ConfigDict(from_attributes=True)

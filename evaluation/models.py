@@ -49,7 +49,7 @@ class EvalJob(Base):
     prompt_id = Column(UUID(as_uuid=True), ForeignKey("prompts.prompt_id"), nullable=False)
     version_id = Column(Integer, ForeignKey("prompt_versions.version_id"), nullable=False)
     dataset_id = Column(UUID(as_uuid=True), ForeignKey("datasets.dataset_id"), nullable=False)
-    status = Column(Enum(JobStatus), nullable=False, default=JobStatus.pending)
+    status = Column(Text, nullable=False, default=JobStatus.pending.value)
     evaluators = Column(JSON, nullable=False)
     created_by = Column(Text, nullable=False)
     created_at = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
@@ -62,7 +62,7 @@ class EvalResult(Base):
 
     result_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     job_id = Column(UUID(as_uuid=True), ForeignKey("eval_jobs.job_id", ondelete="CASCADE"), nullable=False, index=True)
-    example_id = Column(UUID(as_uuid=True), ForeignKey("dataset_examples.example_id"), nullable=False)
+    example_id = Column(BigInteger, ForeignKey("dataset_examples.example_id"), nullable=False)
     run_id = Column(Integer, ForeignKey("runs.run_id"), nullable=True)
     raw_output = Column(Text, nullable=True)
     expected_output = Column(Text, nullable=False)

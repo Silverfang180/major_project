@@ -79,11 +79,11 @@ export function ParetoPage() {
                       <Tooltip cursor={{ strokeDasharray: "3 3" }} contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #334155", borderRadius: "8px" }} />
                       <Scatter
                         name="Models"
-                        data={data.jobs.map((j: any) => ({ name: `${j.prompt_key}-v${j.version_id}`, cost: j.summary.cost_per_correct || 0, acc: (j.summary.accuracy || 0) * 100 }))}
+                        data={data.jobs.map((j: any) => ({ name: `${j.model} (v${j.version_id})`, cost: j.cost_per_correct || 0, acc: (j.accuracy || 0) * 100 }))}
                         fill="#6366f1"
                       />
-                      {data.pareto_frontier && (
-                        <Line type="monotone" dataKey="acc" data={data.pareto_frontier.map((p: any) => ({ cost: p.cost, acc: p.acc * 100 }))} stroke="#10b981" strokeWidth={2} dot={false} isAnimationActive={false} />
+                      {data.jobs && (
+                        <Line type="monotone" dataKey="acc" data={data.jobs.filter((j: any) => j.is_pareto_optimal).sort((a: any, b: any) => (a.cost_per_correct || 0) - (b.cost_per_correct || 0)).map((p: any) => ({ cost: p.cost_per_correct, acc: (p.accuracy || 0) * 100 }))} stroke="#10b981" strokeWidth={2} dot={false} isAnimationActive={false} />
                       )}
                     </ScatterChart>
                   </ResponsiveContainer>
@@ -99,14 +99,13 @@ export function ParetoPage() {
                 <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Frontier Models</h4>
                 <div className="space-y-3">
                   {data.jobs.map((j: any) => {
-                    // Check if it's on frontier (mock logic for UI display if backend didn't supply boolean tag)
-                    const isOptimal = true;
+                    const isOptimal = j.is_pareto_optimal;
                     if (!isOptimal) return null;
                     return (
                       <div key={j.job_id} className="p-3 bg-slate-800/50 rounded-lg flex items-center justify-between border border-emerald-500/20">
                         <div>
-                          <div className="text-[0.8125rem] font-medium text-white flex items-center gap-2">{j.prompt_key} <span className="text-slate-500 text-xs font-mono">v{j.version_id}</span></div>
-                          <div className="text-[0.75rem] text-slate-400 mt-1">Acc: {(j.summary.accuracy * 100).toFixed(1)}% • Cost: ${j.summary.cost_per_correct?.toFixed(4)}</div>
+                          <div className="text-[0.8125rem] font-medium text-white flex items-center gap-2">{j.model} <span className="text-slate-500 text-xs font-mono">v{j.version_id}</span></div>
+                          <div className="text-[0.75rem] text-slate-400 mt-1">Acc: {((j.accuracy || 0) * 100).toFixed(1)}% • Cost: ${j.cost_per_correct?.toFixed(4)}</div>
                         </div>
                       </div>
                     );

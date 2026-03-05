@@ -140,11 +140,10 @@ class ComparisonResponse(BaseModel):
     computed_at: datetime
 
 class DashboardResponse(BaseModel):
+    total_prompts: int
+    total_versions: int
+    total_runs: int
+    total_eval_jobs: int
     total_datasets: int
-    total_jobs: int
-    total_examples: int
-    completed_jobs: int
-    failed_jobs: int
-    recent_jobs: List[EvalJobResponse]
-    top_summaries: List[dict]
+    total_cost_usd: float
 
