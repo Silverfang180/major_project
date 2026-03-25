@@ -116,6 +116,17 @@ export interface EvalJobResponse {
     created_at: string;
     completed_at?: string | null;
     summary?: EvalJobSummary | null;
+    // compare/leaderboard response shape (from EvalSummary)
+    model?: string;
+    accuracy?: number;
+    cost_per_correct?: number | null;
+    p50_latency_ms?: number;
+    p95_latency_ms?: number;
+    total_cost?: number;
+    total_examples?: number;
+    is_pareto_optimal?: boolean;
+    is_knee_point?: boolean;
+    rank?: number;
 }
 
 export interface EvalJobSummary {
@@ -143,27 +154,39 @@ export interface EvalResultResponse {
 
 export interface EvalJobReportResponse {
     job: EvalJobResponse;
-    summary: EvalJobSummary;
+    summary: EvalJobSummary | null;
+    // Backend returns meta object (calibration data), not a flat array
+    meta?: {
+        meta_id: string;
+        job_id: string;
+        calibration_metrics: any;
+        created_at: string;
+        updated_at: string;
+    } | null;
     results: EvalResultResponse[];
-    calibration_data?: any[];
+    result_count: number;
+    correct_count: number;
+    incorrect_count: number;
+    unscored_count: number;
 }
 
 export interface CompareResponse {
     dataset_id: string;
-    dataset_name: string;
-    jobs: EvalJobResponse[];
-    pareto_frontier: any[];
-    knee_point: any | null;
+    compared_jobs: number;
+    pareto_optimal_count: number;
+    knee_point_job_id: string | null;
     recommendation: string;
+    jobs: EvalJobResponse[];   // frontier_results from backend (EvalSummary-based)
+    computed_at: string;
 }
 
 export interface AliasHistoryEntry {
     id: number;
     prompt_id: string;
-    version_id: number;
-    ordinal: number;
-    promoted_at: string;
-    promoted_by?: string;
+    from_version_id: number | null;
+    to_version_id: number;
+    changed_by?: string;
+    changed_at: string;
 }
 
 export interface DashboardResponse {

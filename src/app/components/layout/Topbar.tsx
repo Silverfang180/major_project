@@ -1,8 +1,9 @@
+import { type ReactNode } from "react";
 import { Search, Bell, User } from "lucide-react";
 
 interface TopbarProps {
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
 }
 
 export function Topbar({ title, subtitle }: TopbarProps) {

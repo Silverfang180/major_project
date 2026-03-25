@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router'
+import { Toaster } from 'sonner'
 import { AppLayout } from './app/components/layout/AppLayout'
 import { PromptsPage } from './app/pages/PromptsPage'
 import { VersionsPage } from './app/pages/VersionsPage'
@@ -14,6 +15,7 @@ import { SettingsPage } from './app/pages/SettingsPage'
 
 export default function App() {
     return (
+    <>
         <Routes>
             <Route element={<AppLayout />}>
                 <Route index element={<PromptsPage />} />
@@ -29,5 +31,7 @@ export default function App() {
                 <Route path="settings" element={<SettingsPage />} />
             </Route>
         </Routes>
+        <Toaster theme="dark" position="bottom-right" />
+    </>
     )
 }

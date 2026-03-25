@@ -1,211 +1,655 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Topbar } from "../components/layout/Topbar";
 import { Badge } from "../components/shared/Badge";
 import { Modal } from "../components/shared/Modal";
-import { Plus, Search, Filter, ChevronRight, Copy, Loader2 } from "lucide-react";
-import { api, getIdentity, type PromptResponse, type VersionResponse } from "../../lib/api";
+import {
+  Plus, Search, ChevronRight, Copy, Loader2, Trash2,
+  ArrowLeft, GitBranch, Zap, Clock, DollarSign, Play
+} from "lucide-react";
+import { toast } from "sonner";
+import { api, getIdentity, type PromptResponse, type VersionResponse, type RunResponse } from "../../lib/api";
 
+// ── Model pricing (mirrors the GUI) ──────────────────────────────────────────
+const MODEL_PRICING: Record<string, { input: number; output: number }> = {
+  "llama-3.3-70b-versatile": { input: 0.00059, output: 0.00079 },
+  "llama-3.1-8b-instant":    { input: 0.00005, output: 0.00008 },
+  "llama3-70b-8192":         { input: 0.00059, output: 0.00079 },
+  "mixtral-8x7b-32768":      { input: 0.00024, output: 0.00024 },
+  "gemma2-9b-it":            { input: 0.00020, output: 0.00020 },
+  "gpt-4o":                  { input: 0.005,   output: 0.015   },
+  "gpt-4o-mini":             { input: 0.00015, output: 0.0006  },
+};
+const MODEL_CONTEXT: Record<string, number> = {
+  "llama-3.3-70b-versatile": 128000, "llama-3.1-8b-instant": 128000,
+  "llama3-70b-8192": 8192, "mixtral-8x7b-32768": 32768,
+  "gemma2-9b-it": 8192, "gpt-4o": 128000, "gpt-4o-mini": 128000,
+};
+
+function estimateTokens(text: string) { return Math.ceil(text.length / 4); }
+
+function TokenBar({ text, modelJson }: { text: string; modelJson: string }) {
+  if (!text) return null;
+  const tokens = estimateTokens(text);
+  let model: string | null = null;
+  let cost: number | null = null;
+  try {
+    const parsed = JSON.parse(modelJson);
+    model = parsed.model || null;
+  } catch { /* ignore */ }
+  if (model && MODEL_PRICING[model]) {
+    cost = (tokens / 1000) * MODEL_PRICING[model].input;
+  }
+  const maxCtx = model ? (MODEL_CONTEXT[model] || 8192) : 8192;
+  const pct = Math.min((tokens / maxCtx) * 100, 100);
+  const barColor = pct > 80 ? "bg-rose-500" : pct > 50 ? "bg-amber-500" : "bg-emerald-500";
+
+  return (
+    <div className="mt-2 space-y-1.5">
+      <p className="text-[0.75rem] font-mono text-slate-500">
+        ~{tokens} tokens
+        {cost !== null && <> · Est. <span className="text-amber-400">${cost.toFixed(6)}</span></>}
+        {model && <> · <span className="text-indigo-400">{model}</span></>}
+        {!model && " · Model not set"}
+      </p>
+      {model && (
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-1 bg-slate-800 rounded-full overflow-hidden">
+            <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+          </div>
+          <span className="text-[0.6875rem] font-mono text-slate-600">
+            {tokens.toLocaleString()} / {maxCtx.toLocaleString()}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Version Timeline Card ─────────────────────────────────────────────────────
+function VersionCard({
+  version, isProduction, isLatest, onPromote, promptId, promoting
+}: {
+  version: VersionResponse;
+  isProduction: boolean;
+  isLatest: boolean;
+  onPromote: (promptId: string, versionId: number) => void;
+  promptId: string;
+  promoting: boolean;
+}) {
+  let model: string | null = null;
+  try { model = version.model_settings?.model || null; } catch { /* */ }
+
+  return (
+    <div className={`relative pl-8 pb-6 ${isProduction ? "opacity-100" : "opacity-80"}`}>
+      {/* Timeline line */}
+      <div className="absolute left-[11px] top-5 bottom-0 w-px bg-slate-700/50" />
+      {/* Timeline dot */}
+      <div className={`absolute left-0 top-[18px] w-5 h-5 rounded-full border-2 flex items-center justify-center
+        ${isProduction ? "border-emerald-500 bg-emerald-500/20" : "border-slate-600 bg-slate-800"}`}>
+        {isProduction && <div className="w-2 h-2 rounded-full bg-emerald-400" />}
+      </div>
+
+      <div className={`bg-slate-800/50 border rounded-xl p-4 
+        ${isProduction ? "border-emerald-500/30" : "border-slate-700/50"}`}>
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-white font-bold text-lg font-mono">v{version.ordinal}</span>
+            {isProduction && <Badge variant="success">PRODUCTION</Badge>}
+            {isLatest && !isProduction && <Badge variant="info">latest</Badge>}
+          </div>
+          <span className="text-[0.6875rem] text-slate-600 font-mono whitespace-nowrap">
+            {new Date(version.created_at).toLocaleString()}
+          </span>
+        </div>
+
+        {version.change_note && (
+          <p className="text-[0.8125rem] text-slate-400 italic mb-2">"{version.change_note}"</p>
+        )}
+
+        {model && (
+          <span className="inline-block text-[0.6875rem] font-mono bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded-full mb-3">
+            {model}
+          </span>
+        )}
+
+        <div className="flex justify-end">
+          {isProduction ? (
+            <span className="text-[0.75rem] text-emerald-400 font-medium">Active</span>
+          ) : (
+            <button
+              onClick={() => onPromote(promptId, version.version_id)}
+              disabled={promoting}
+              className="px-3 py-1 text-[0.75rem] border border-indigo-500/40 text-indigo-400 rounded-full hover:bg-indigo-500/10 transition-colors disabled:opacity-40"
+            >
+              {promoting ? "Promoting…" : "Promote →"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export function PromptsPage() {
   const [prompts, setPrompts] = useState<PromptResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+
+  // Selected prompt (editor view)
+  const [selectedPrompt, setSelectedPrompt] = useState<PromptResponse | null>(null);
   const [versions, setVersions] = useState<VersionResponse[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [aliasHistory, setAliasHistory] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<"versions" | "aliases" | "runs">("versions");
-  const [search, setSearch] = useState("");
+  const [promoting, setPromoting] = useState(false);
 
-  // Create prompt form state
-  const [newKey, setNewKey] = useState("");
+  // New version form
+  const [vPromptText, setVPromptText] = useState("");
+  const [vModelJson, setVModelJson] = useState('{"model":"llama-3.3-70b-versatile","temperature":0.7}');
+  const [vChangeNote, setVChangeNote] = useState("");
+  const [vSaving, setVSaving] = useState(false);
+  const [vError, setVError] = useState<string | null>(null);
+
+  const [execInputs, setExecInputs] = useState<Record<string, string>>({});
+  const [executing, setExecuting] = useState(false);
+  const [runResult, setRunResult] = useState<RunResponse | null>(null);
+
+  // Model Settings Visual State
+  const [showAdvancedModel, setShowAdvancedModel] = useState(false);
+
+  // Create prompt modal
+  const [createOpen, setCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
-  const [newPromptText, setNewPromptText] = useState("");
+  const [newKey, setNewKey] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [keyManuallyEdited, setKeyManuallyEdited] = useState(false);
+  const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
-    loadPrompts();
+  // ── helpers ───────────────────────────────────────────────────────────────
+  function slugify(title: string) {
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+    const sfx = Math.random().toString(36).slice(2, 8);
+    return slug ? `${slug}-${sfx}` : sfx;
+  }
+
+  function handleTitleChange(v: string) {
+    setNewTitle(v);
+    if (!keyManuallyEdited) {
+      const slug = v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+      setNewKey(slug || "");
+    }
+  }
+
+  function resetCreateModal() {
+    setNewTitle(""); setNewKey(""); setNewDesc("");
+    setKeyManuallyEdited(false); setCreating(false);
+  }
+
+  // ── data loaders ──────────────────────────────────────────────────────────
+  const loadPrompts = useCallback(async () => {
+    setLoading(true); setError(null);
+    try { setPrompts(await api.getPrompts()); }
+    catch (e: any) { setError(e.message); }
+    finally { setLoading(false); }
   }, []);
 
-  async function loadPrompts() {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await api.getPrompts();
-      setPrompts(data);
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }
+  useEffect(() => { loadPrompts(); }, [loadPrompts]);
 
-  async function handleSelectPrompt(promptId: string) {
-    setSelectedPromptId(promptId);
-    setActiveTab("versions");
+  async function openPrompt(prompt: PromptResponse) {
+    setSelectedPrompt(prompt);
+    setVPromptText("");
+    setVChangeNote("");
+    setVError(null);
     setVersionsLoading(true);
     try {
-      const [vers, history] = await Promise.all([
-        api.getVersions(promptId),
-        api.getAliasHistory(promptId).catch(() => []),
+      const [vers, hist] = await Promise.all([
+        api.getVersions(prompt.prompt_id),
+        api.getAliasHistory(prompt.prompt_id).catch(() => []),
       ]);
       setVersions(vers);
-      setAliasHistory(history);
-    } catch (e: any) {
-      console.error("Failed to load versions:", e);
-    } finally {
-      setVersionsLoading(false);
-    }
+      setAliasHistory(hist);
+      // Pre-fill editor with latest version text
+      const latest = vers.find(v => v.is_latest);
+      if (latest) {
+        setVPromptText(latest.prompt_text || "");
+        if (latest.model_settings && Object.keys(latest.model_settings).length > 0) {
+          setVModelJson(JSON.stringify(latest.model_settings, null, 2));
+        }
+      }
+    } catch (e: any) { console.error(e); }
+    finally { setVersionsLoading(false); }
   }
 
-  async function handleCreatePrompt() {
-    if (!newKey.trim() || !newTitle.trim()) return;
+  async function handleCreate() {
+    if (!newTitle.trim()) return;
+    const finalKey = keyManuallyEdited ? newKey.trim() : slugify(newTitle.trim());
+    if (!finalKey) return;
+    setCreating(true);
     try {
       const identity = await getIdentity();
-      const prompt = await api.createPrompt(newKey.trim(), newTitle.trim(), identity);
-      if (newPromptText.trim()) {
-        await api.createVersion(prompt.prompt_id, newPromptText.trim(), identity);
-      }
+      const prompt = await api.createPrompt(finalKey, newTitle.trim(), identity);
+      await loadPrompts();
       setCreateOpen(false);
-      setNewKey("");
-      setNewTitle("");
-      setNewPromptText("");
-      loadPrompts();
+      resetCreateModal();
+      // Auto-navigate into the new prompt's editor
+      setSelectedPrompt(prompt);
+      setVersions([]);
+      setAliasHistory([]);
+      setVersionsLoading(false);
+      setVPromptText("");
+      setVChangeNote("");
+      toast.success("Prompt created successfully");
     } catch (e: any) {
-      alert("Failed to create prompt: " + e.message);
-    }
+      toast.error("Failed to create prompt: " + e.message);
+    } finally { setCreating(false); }
+  }
+
+  async function handleCreateVersion() {
+    if (!selectedPrompt || !vPromptText.trim()) return;
+    setVSaving(true); setVError(null);
+    try {
+      let modelSettings: Record<string, any> = {};
+      if (vModelJson.trim()) {
+        try { modelSettings = JSON.parse(vModelJson); }
+        catch { setVError("Invalid JSON in model settings"); setVSaving(false); return; }
+      }
+      const identity = await getIdentity();
+      await api.createVersion(selectedPrompt.prompt_id, vPromptText.trim(), identity, modelSettings);
+      // Refresh versions & prompt list
+      const [vers, , freshPrompts] = await Promise.all([
+        api.getVersions(selectedPrompt.prompt_id),
+        api.getAliasHistory(selectedPrompt.prompt_id).catch(() => []),
+        api.getPrompts(),
+      ]);
+      setVersions(vers);
+      setPrompts(freshPrompts);
+      setVChangeNote("");
+      // Update selected prompt reference
+      const updated = freshPrompts.find(p => p.prompt_id === selectedPrompt.prompt_id);
+      if (updated) setSelectedPrompt(updated);
+      toast.success("New version saved");
+    } catch (e: any) { setVError(e.message); }
+    finally { setVSaving(false); }
   }
 
   async function handlePromote(promptId: string, versionId: number) {
+    setPromoting(true);
     try {
       await api.promoteVersion(promptId, versionId);
-      // Refresh
-      loadPrompts();
-      handleSelectPrompt(promptId);
+      const [vers, freshPrompts] = await Promise.all([
+        api.getVersions(promptId),
+        api.getPrompts(),
+      ]);
+      setVersions(vers);
+      setPrompts(freshPrompts);
+      const updated = freshPrompts.find(p => p.prompt_id === promptId);
+      if (updated) setSelectedPrompt(updated);
+      toast.success("Version promoted to production");
+    } catch (e: any) { toast.error("Failed to promote: " + e.message); }
+    finally { setPromoting(false); }
+  }
+
+  async function handleExecute() {
+    if (!selectedPrompt || !selectedPrompt.production_version_id) {
+      toast.error("Run failed: You must promote a version to production first.");
+      return;
+    }
+    setExecuting(true); setRunResult(null);
+    try {
+      const res = await api.executePrompt(selectedPrompt.key, execInputs);
+      setRunResult(res);
+      toast.success("Prompt executed");
     } catch (e: any) {
-      alert("Failed to promote: " + e.message);
+      toast.error(e.message || "Execution failed");
+    } finally {
+      setExecuting(false);
     }
   }
 
-  const filtered = prompts.filter(
-    (p) => p.key.includes(search.toLowerCase()) || p.title.toLowerCase().includes(search.toLowerCase())
-  );
+  // Visual model editor config extract
+  let currentModel = "llama-3.3-70b-versatile";
+  let currentTemp = 0.7;
+  try {
+    if (vModelJson.trim()) {
+      const pb = JSON.parse(vModelJson);
+      if (pb.model) currentModel = pb.model;
+      if (typeof pb.temperature === 'number') currentTemp = pb.temperature;
+    }
+  } catch (e) {}
 
-  const selectedPrompt = prompts.find((p) => p.prompt_id === selectedPromptId);
+  function handleVisualModelChange(modelName: string) {
+    try {
+      const pb = vModelJson.trim() ? JSON.parse(vModelJson) : {};
+      setVModelJson(JSON.stringify({ ...pb, model: modelName }, null, 2));
+    } catch(e) {
+      setVModelJson(JSON.stringify({ model: modelName, temperature: currentTemp }, null, 2));
+    }
+  }
 
-  if (selectedPromptId && selectedPrompt) {
+  function handleVisualTempChange(temp: number) {
+    try {
+      const pb = vModelJson.trim() ? JSON.parse(vModelJson) : {};
+      setVModelJson(JSON.stringify({ ...pb, temperature: temp }, null, 2));
+    } catch(e) {
+      setVModelJson(JSON.stringify({ model: currentModel, temperature: temp }, null, 2));
+    }
+  }
+
+  // ── Editor View (GUI-style) ───────────────────────────────────────────────
+  if (selectedPrompt) {
+    const prodVersionId = selectedPrompt.production_version_id;
+    const detectedVars = Array.from(new Set([...vPromptText.matchAll(/\{\{([^}]+)\}\}/g)].map(m => m[1])));
+
     return (
-      <div>
-        <Topbar title={selectedPrompt.title} subtitle={`Prompt Key: ${selectedPrompt.key}`} />
-        <div className="p-6">
-          <button onClick={() => setSelectedPromptId(null)} className="text-slate-400 hover:text-white text-[0.8125rem] mb-4 flex items-center gap-1">
-            ← Back to Prompts
-          </button>
-          <div className="flex gap-1 mb-6 bg-slate-800/30 p-1 rounded-lg w-fit">
-            {(["versions", "aliases", "runs"] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-1.5 rounded-md text-[0.8125rem] transition-colors ${activeTab === tab ? "bg-slate-700 text-white" : "text-slate-400 hover:text-white"}`}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </button>
-            ))}
-          </div>
-          {activeTab === "versions" && (
-            versionsLoading ? (
-              <div className="flex items-center gap-2 text-slate-400 text-sm"><Loader2 size={16} className="animate-spin" /> Loading versions...</div>
-            ) : (
-              <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl overflow-hidden">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-slate-700/50">
-                      <th className="text-left text-[0.75rem] text-slate-500 px-4 py-3">Version ID</th>
-                      <th className="text-left text-[0.75rem] text-slate-500 px-4 py-3">Ordinal</th>
-                      <th className="text-left text-[0.75rem] text-slate-500 px-4 py-3">Author</th>
-                      <th className="text-left text-[0.75rem] text-slate-500 px-4 py-3">Status</th>
-                      <th className="text-left text-[0.75rem] text-slate-500 px-4 py-3">Created</th>
-                      <th className="text-right text-[0.75rem] text-slate-500 px-4 py-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {versions.length === 0 ? (
-                      <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-500 text-sm">No versions found</td></tr>
-                    ) : versions.map((v) => (
-                      <tr key={v.version_id} className="border-b border-slate-700/30 hover:bg-slate-800/50 transition-colors">
-                        <td className="px-4 py-3 text-[0.8125rem] text-slate-300 font-mono">{v.version_id}</td>
-                        <td className="px-4 py-3 text-[0.8125rem] text-slate-300">#{v.ordinal}</td>
-                        <td className="px-4 py-3 text-[0.8125rem] text-slate-400">{v.created_by || "—"}</td>
-                        <td className="px-4 py-3">
-                          {selectedPrompt.production_version_id === v.version_id
-                            ? <Badge variant="success">production</Badge>
-                            : v.is_latest
-                              ? <Badge variant="info">latest</Badge>
-                              : <Badge variant="neutral">archived</Badge>}
-                        </td>
-                        <td className="px-4 py-3 text-[0.8125rem] text-slate-500">{new Date(v.created_at).toLocaleDateString()}</td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            disabled={selectedPrompt.production_version_id === v.version_id}
-                            onClick={() => handlePromote(selectedPrompt.prompt_id, v.version_id)}
-                            className="px-3 py-1 text-[0.75rem] border border-indigo-500/50 text-indigo-400 rounded-lg hover:bg-indigo-500/10 transition-colors disabled:opacity-30"
-                          >
-                            {selectedPrompt.production_version_id === v.version_id ? "Live" : "Promote"}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+      <div className="flex flex-col h-full">
+        <Topbar
+          title={selectedPrompt.title}
+          subtitle={
+            <code className="text-indigo-400 text-[0.75rem] font-mono bg-indigo-500/10 px-2 py-0.5 rounded">
+              {selectedPrompt.key}
+            </code>
+          }
+        />
+
+        {/* 2-column layout: Editor left, Timeline right */}
+        <div className="flex flex-1 overflow-hidden">
+
+          {/* ── Left: Editor ── */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <button
+              onClick={() => setSelectedPrompt(null)}
+              className="flex items-center gap-1.5 text-slate-400 hover:text-white text-[0.8125rem] transition-colors"
+            >
+              <ArrowLeft size={14} /> Back to Prompts
+            </button>
+
+            {/* Prompt meta */}
+            <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-white font-bold text-xl mb-1">{selectedPrompt.title}</h2>
+                  <code className="text-[0.75rem] font-mono text-slate-500">{selectedPrompt.key}</code>
+                </div>
+                <div className="flex items-center gap-3 text-[0.75rem] text-slate-500">
+                  <span className="flex items-center gap-1"><GitBranch size={12} /> {versions.length} versions</span>
+                  {prodVersionId && <Badge variant="success">has production</Badge>}
+                </div>
               </div>
-            )
-          )}
-          {activeTab === "aliases" && (
-            <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-6">
-              {aliasHistory.length === 0 ? (
-                <p className="text-slate-500 text-sm">No promotion history yet.</p>
-              ) : (
-                <div className="space-y-3">
-                  {aliasHistory.map((a: any) => (
-                    <div key={a.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Badge variant="success">production</Badge>
-                        <span className="text-[0.8125rem] text-slate-300 font-mono">→ version #{a.ordinal || a.version_id}</span>
+            </div>
+
+            {/* ── New Version Editor ── */}
+            <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl overflow-hidden">
+              <div className="px-5 py-3 border-b border-slate-700/50 bg-slate-800/50">
+                <h3 className="text-white font-semibold text-sm uppercase tracking-wider">New Version</h3>
+              </div>
+              <div className="p-5 space-y-4">
+
+                {/* Prompt text */}
+                <div>
+                  <label className="block text-[0.8125rem] font-medium text-slate-400 mb-1.5 uppercase tracking-wide text-xs">
+                    Prompt Text
+                  </label>
+                  <textarea
+                    value={vPromptText}
+                    onChange={e => setVPromptText(e.target.value)}
+                    rows={8}
+                    className="w-full bg-slate-900 border border-slate-700 focus:border-indigo-500 rounded-lg px-4 py-3 text-[0.8125rem] text-white font-mono outline-none resize-y transition-colors placeholder:text-slate-600"
+                    placeholder="Enter your prompt text… Use {{variable}} for injected values"
+                  />
+                  <TokenBar text={vPromptText} modelJson={vModelJson} />
+                </div>
+
+                {/* Model settings */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[0.8125rem] font-medium text-slate-400 uppercase tracking-wide text-xs">
+                      Model Settings
+                    </label>
+                    <button 
+                      onClick={() => setShowAdvancedModel(!showAdvancedModel)}
+                      className="text-[0.6875rem] text-indigo-400 hover:text-indigo-300 uppercase tracking-wider font-semibold"
+                    >
+                      {showAdvancedModel ? "Simple View" : "Advanced JSON"}
+                    </button>
+                  </div>
+                  
+                  {showAdvancedModel ? (
+                    <textarea
+                      value={vModelJson}
+                      onChange={e => setVModelJson(e.target.value)}
+                      rows={3}
+                      className="w-full bg-slate-900 border border-slate-700 focus:border-indigo-500 rounded-lg px-4 py-3 text-[0.8125rem] text-slate-300 font-mono outline-none resize-y transition-colors"
+                      placeholder='{"model":"llama-3.3-70b-versatile","temperature":0.7}'
+                    />
+                  ) : (
+                    <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 space-y-4">
+                      <div>
+                        <label className="block text-xs text-slate-500 mb-1.5 font-medium">Model</label>
+                        <select 
+                          value={currentModel}
+                          onChange={e => handleVisualModelChange(e.target.value)}
+                          className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-[0.8125rem] text-white outline-none focus:border-indigo-500 transition-colors"
+                        >
+                          {Object.keys(MODEL_PRICING).map(m => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                        </select>
                       </div>
-                      <span className="text-[0.75rem] text-slate-500">{new Date(a.promoted_at).toLocaleDateString()}</span>
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="text-xs text-slate-500 font-medium">Temperature</label>
+                          <span className="text-xs text-indigo-400 font-mono">{currentTemp.toFixed(2)}</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="0" max="2" step="0.05"
+                          value={currentTemp}
+                          onChange={e => handleVisualTempChange(parseFloat(e.target.value))}
+                          className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                        />
+                        <div className="flex items-center justify-between mt-1 px-1">
+                          <span className="text-[0.65rem] text-slate-600">Focused</span>
+                          <span className="text-[0.65rem] text-slate-600">Creative</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Change note */}
+                <div>
+                  <label className="block text-[0.8125rem] font-medium text-slate-400 mb-1.5 uppercase tracking-wide text-xs">
+                    Change Note
+                  </label>
+                  <input
+                    value={vChangeNote}
+                    onChange={e => setVChangeNote(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 focus:border-indigo-500 rounded-lg px-4 py-2.5 text-[0.8125rem] text-white outline-none transition-colors placeholder:text-slate-600"
+                    placeholder="Describe what changed in this version…"
+                  />
+                </div>
+
+                {vError && (
+                  <p className="text-rose-400 text-[0.8125rem] bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
+                    {vError}
+                  </p>
+                )}
+
+                <button
+                  onClick={handleCreateVersion}
+                  disabled={vSaving || !vPromptText.trim()}
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-semibold text-[0.8125rem] uppercase tracking-wider rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  {vSaving ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : "Create New Version"}
+                </button>
+              </div>
+            </div>
+
+            {/* ── Execute Section ── */}
+            <div className="bg-slate-800/20 border border-slate-700/50 rounded-xl overflow-hidden mt-6">
+              <div className="px-5 py-3 border-b border-slate-700/50 flex items-center gap-3">
+                <Play size={14} className="text-emerald-500" />
+                <h3 className="text-white font-semibold text-sm uppercase tracking-wider">Execute</h3>
+                {prodVersionId ? (
+                  <span className="text-[0.6875rem] font-mono text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                    Active: v{prodVersionId}
+                  </span>
+                ) : (
+                  <span className="text-[0.6875rem] font-mono text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                    No active version
+                  </span>
+                )}
+              </div>
+              
+              <div className="p-5 space-y-4">
+                {detectedVars.length > 0 && (
+                  <div className="space-y-3">
+                    {detectedVars.map(variable => (
+                      <div key={variable} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                        <label className="text-[0.8125rem] font-mono text-slate-400 w-32 shrink-0">
+                          {`{{${variable}}}`}
+                        </label>
+                        <input
+                          value={execInputs[variable] || ""}
+                          onChange={e => setExecInputs({ ...execInputs, [variable]: e.target.value })}
+                          className="flex-1 bg-slate-900 border border-slate-700 focus:border-indigo-500 rounded-lg px-3 py-2 text-[0.8125rem] text-white outline-none transition-colors"
+                          placeholder={`Value for ${variable}...`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {detectedVars.length === 0 && (
+                  <p className="text-[0.8125rem] text-slate-500 italic">No variables detected in prompt text.</p>
+                )}
+
+                <div className="pt-2">
+                  <button
+                    onClick={handleExecute}
+                    disabled={executing || !prodVersionId}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-semibold text-[0.8125rem] uppercase tracking-wider rounded-lg transition-colors"
+                  >
+                    {executing ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+                    {executing ? "Sending…" : "Execute"}
+                  </button>
+                  {!prodVersionId && (
+                    <p className="text-xs text-amber-500 mt-2">Promote a version to production before executing.</p>
+                  )}
+                </div>
+
+                {/* Run Result */}
+                {runResult && (
+                  <div className={`mt-4 border rounded-xl overflow-hidden ${runResult.status === 'success' ? 'border-emerald-500/30' : 'border-rose-500/30'}`}>
+                    <div className={`flex flex-wrap items-center gap-6 px-4 py-2 text-[0.75rem] ${runResult.status === 'success' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                      <span className="font-mono">Run ID: {runResult.run_id}</span>
+                      {runResult.latency_ms && <span className="flex items-center gap-1"><Clock size={12} /> {runResult.latency_ms}ms</span>}
+                      {runResult.cost_usd && <span className="flex items-center gap-1"><DollarSign size={12} /> ${runResult.cost_usd.toFixed(6)}</span>}
+                    </div>
+                    <div className="p-4 bg-slate-900/50">
+                      <pre className="text-[0.8125rem] text-slate-300 whitespace-pre-wrap font-mono leading-relaxed">
+                        {runResult.error_detail || (runResult as any).response || runResult.raw_response?.choices?.[0]?.message?.content || "No output"}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Right: Timeline ── */}
+          <aside className="w-80 shrink-0 border-l border-slate-700/50 overflow-y-auto p-5 bg-slate-900/30">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-white font-semibold text-sm">Timeline</h3>
+              <span className="text-[0.75rem] font-mono text-slate-500">
+                {versionsLoading ? "…" : `${versions.length} version${versions.length !== 1 ? "s" : ""}`}
+              </span>
+            </div>
+
+            {versionsLoading ? (
+              <div className="flex items-center gap-2 text-slate-500 text-sm">
+                <Loader2 size={14} className="animate-spin" /> Loading…
+              </div>
+            ) : versions.length === 0 ? (
+              <div className="text-center py-8 text-slate-600">
+                <GitBranch size={28} className="mx-auto mb-3 opacity-40" />
+                <p className="text-sm">No versions yet</p>
+                <p className="text-xs mt-1">Create the first version</p>
+              </div>
+            ) : (
+              <div className="space-y-0">
+                {versions.map((v, i) => (
+                  <VersionCard
+                    key={v.version_id}
+                    version={v}
+                    isProduction={prodVersionId === v.version_id}
+                    isLatest={i === 0}
+                    onPromote={handlePromote}
+                    promptId={selectedPrompt.prompt_id}
+                    promoting={promoting}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Promotion history */}
+            {aliasHistory.length > 0 && (
+              <div className="mt-6 pt-6 border-t border-slate-700/50">
+                <h4 className="text-[0.75rem] uppercase tracking-wider text-slate-500 font-semibold mb-3">
+                  Promotion History
+                </h4>
+                <div className="space-y-2">
+                  {aliasHistory.map((a: any, i: number) => (
+                    <div key={i} className="flex items-center gap-2 text-[0.75rem] font-mono text-slate-500">
+                      <span className="text-slate-600">{a.from_version_id != null ? `v${a.from_version_id}` : "none"}</span>
+                      <span className="text-slate-600">→</span>
+                      <span className="text-indigo-400">v{a.to_version_id}</span>
+                      <span className="ml-auto text-slate-600 text-[0.6875rem]">
+                        {new Date(a.changed_at || a.promoted_at).toLocaleTimeString()}
+                      </span>
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-          )}
-          {activeTab === "runs" && (
-            <p className="text-slate-500 text-[0.8125rem]">View runs for this prompt on the Runs page.</p>
-          )}
+              </div>
+            )}
+          </aside>
         </div>
       </div>
     );
   }
+
+  // ── Prompts List ──────────────────────────────────────────────────────────
+  const filtered = prompts.filter(
+    p => p.key.includes(search.toLowerCase()) || p.title.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div>
       <Topbar title="Prompts" subtitle="Version control for your LLM prompts" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center bg-slate-800/50 border border-slate-700 rounded-lg px-3 py-1.5 gap-2">
-              <Search size={14} className="text-slate-500" />
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search prompts..." className="bg-transparent text-[0.8125rem] text-slate-300 placeholder:text-slate-600 outline-none w-56" />
-            </div>
-            <button className="flex items-center gap-1.5 px-3 py-1.5 text-[0.8125rem] text-slate-400 border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors">
-              <Filter size={14} /> Filter
-            </button>
+          <div className="flex items-center bg-slate-800/50 border border-slate-700 rounded-lg px-3 py-1.5 gap-2">
+            <Search size={14} className="text-slate-500" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search prompts…"
+              className="bg-transparent text-[0.8125rem] text-slate-300 placeholder:text-slate-600 outline-none w-56"
+            />
           </div>
-          <button onClick={() => setCreateOpen(true)} className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-[0.8125rem] rounded-lg transition-colors shadow-lg shadow-indigo-500/20">
-            <Plus size={14} /> Create Prompt
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-[0.8125rem] rounded-lg transition-colors shadow-lg shadow-indigo-500/20"
+          >
+            <Plus size={14} /> New Prompt
           </button>
         </div>
+
         {loading ? (
-          <div className="flex items-center justify-center py-12 gap-2 text-slate-400"><Loader2 size={20} className="animate-spin" /> Loading prompts...</div>
+          <div className="flex items-center justify-center py-16 gap-2 text-slate-400">
+            <Loader2 size={20} className="animate-spin" /> Loading prompts…
+          </div>
         ) : error ? (
           <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-6 text-rose-400 text-sm">
             <p className="font-medium mb-1">Failed to load prompts</p>
@@ -219,34 +663,53 @@ export function PromptsPage() {
                 <tr className="border-b border-slate-700/50">
                   <th className="text-left text-[0.75rem] text-slate-500 px-4 py-3">Prompt Key</th>
                   <th className="text-left text-[0.75rem] text-slate-500 px-4 py-3">Title</th>
-                  <th className="text-left text-[0.75rem] text-slate-500 px-4 py-3">Production</th>
+                  <th className="text-left text-[0.75rem] text-slate-500 px-4 py-3">Status</th>
                   <th className="text-left text-[0.75rem] text-slate-500 px-4 py-3">Updated</th>
-                  <th className="text-right text-[0.75rem] text-slate-500 px-4 py-3">Actions</th>
+                  <th className="text-right text-[0.75rem] text-slate-500 px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500 text-sm">No prompts found. Create your first prompt to get started.</td></tr>
-                ) : filtered.map((p) => (
-                  <tr key={p.prompt_id} className="border-b border-slate-700/30 hover:bg-slate-800/50 cursor-pointer transition-colors" onClick={() => handleSelectPrompt(p.prompt_id)}>
+                  <tr><td colSpan={5} className="px-4 py-10 text-center text-slate-500 text-sm">
+                    No prompts yet. Click <strong className="text-indigo-400">New Prompt</strong> to create your first.
+                  </td></tr>
+                ) : filtered.map(p => (
+                  <tr
+                    key={p.prompt_id}
+                    className="border-b border-slate-700/30 hover:bg-slate-800/50 cursor-pointer transition-colors"
+                    onClick={() => openPrompt(p)}
+                  >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <code className="text-[0.8125rem] text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">{p.key}</code>
-                        <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(p.key); }} className="text-slate-600 hover:text-slate-400">
+                        {p.production_version_id && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(74,222,128,0.6)]" />
+                        )}
+                        <code className="text-[0.8125rem] text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">
+                          {p.key}
+                        </code>
+                        <button
+                          onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(p.key); }}
+                          className="text-slate-600 hover:text-slate-400"
+                        >
                           <Copy size={12} />
                         </button>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-[0.8125rem] text-slate-300">{p.title}</td>
                     <td className="px-4 py-3">
-                      {p.latest_version ? (
-                        <Badge variant="success">v{p.latest_version.ordinal}</Badge>
-                      ) : (
-                        <Badge variant="neutral">none</Badge>
-                      )}
+                      {p.production_version_id
+                        ? <Badge variant="success">production</Badge>
+                        : p.latest_version
+                          ? <Badge variant="info">draft</Badge>
+                          : <Badge variant="neutral">empty</Badge>
+                      }
                     </td>
-                    <td className="px-4 py-3 text-[0.8125rem] text-slate-500">{new Date(p.updated_at || p.created_at).toLocaleDateString()}</td>
-                    <td className="px-4 py-3 text-right"><ChevronRight size={14} className="text-slate-600 inline" /></td>
+                    <td className="px-4 py-3 text-[0.8125rem] text-slate-500">
+                      {new Date(p.updated_at || p.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <ChevronRight size={14} className="text-slate-600 inline" />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -254,24 +717,72 @@ export function PromptsPage() {
           </div>
         )}
       </div>
-      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Create Prompt"
-        footer={<>
-          <button onClick={() => setCreateOpen(false)} className="px-4 py-2 text-[0.8125rem] text-slate-400 border border-slate-600 rounded-lg hover:bg-slate-800">Cancel</button>
-          <button onClick={handleCreatePrompt} className="px-4 py-2 text-[0.8125rem] bg-indigo-600 text-white rounded-lg hover:bg-indigo-500">Create</button>
-        </>}
+
+      {/* ── Create Prompt Modal ── */}
+      <Modal
+        open={createOpen}
+        onClose={() => { setCreateOpen(false); resetCreateModal(); }}
+        title="Create Prompt"
+        footer={
+          <>
+            <button
+              onClick={() => { setCreateOpen(false); resetCreateModal(); }}
+              className="px-4 py-2 text-[0.8125rem] text-slate-400 border border-slate-600 rounded-lg hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCreate}
+              disabled={creating || !newTitle.trim()}
+              className="px-5 py-2 text-[0.8125rem] bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-lg flex items-center gap-2"
+            >
+              {creating ? <><Loader2 size={13} className="animate-spin" /> Creating…</> : "Create"}
+            </button>
+          </>
+        }
       >
         <div className="space-y-4">
+          {/* Title first */}
           <div>
-            <label className="block text-[0.8125rem] text-slate-400 mb-1.5">Prompt Key</label>
-            <input value={newKey} onChange={(e) => setNewKey(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-[0.8125rem] text-white outline-none focus:border-indigo-500" placeholder="e.g. chat-completion" />
+            <label className="block text-[0.8125rem] text-slate-400 mb-1.5 uppercase tracking-wide text-xs font-medium">
+              Title
+            </label>
+            <input
+              value={newTitle}
+              onChange={e => handleTitleChange(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-[0.8125rem] text-white outline-none focus:border-indigo-500 transition-colors"
+              placeholder="e.g. Customer Support Bot"
+              autoFocus
+            />
           </div>
+
+          {/* Key (auto-generated, editable) */}
           <div>
-            <label className="block text-[0.8125rem] text-slate-400 mb-1.5">Title</label>
-            <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-[0.8125rem] text-white outline-none focus:border-indigo-500" placeholder="Human readable name" />
+            <label className="block text-[0.8125rem] text-slate-400 mb-1 uppercase tracking-wide text-xs font-medium">
+              Key <span className="text-slate-600 normal-case">(auto-generated, editable)</span>
+            </label>
+            <input
+              value={keyManuallyEdited ? newKey : (newTitle
+                ? newTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) + "-······"
+                : "")}
+              onChange={e => { setNewKey(e.target.value); setKeyManuallyEdited(true); }}
+              className="w-full bg-slate-800/50 border border-slate-700/50 rounded-lg px-3 py-2.5 text-[0.8125rem] text-slate-400 font-mono outline-none focus:border-indigo-500 focus:text-white transition-colors"
+              placeholder="auto-generated from title"
+            />
           </div>
+
+          {/* Description */}
           <div>
-            <label className="block text-[0.8125rem] text-slate-400 mb-1.5">System Prompt (optional, creates first version)</label>
-            <textarea value={newPromptText} onChange={(e) => setNewPromptText(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-[0.8125rem] text-white outline-none focus:border-indigo-500 h-32 font-mono resize-none" placeholder="You are a helpful assistant..." />
+            <label className="block text-[0.8125rem] text-slate-400 mb-1.5 uppercase tracking-wide text-xs font-medium">
+              Description <span className="text-slate-600 normal-case">(optional)</span>
+            </label>
+            <textarea
+              value={newDesc}
+              onChange={e => setNewDesc(e.target.value)}
+              rows={3}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-[0.8125rem] text-white outline-none focus:border-indigo-500 transition-colors resize-none placeholder:text-slate-600"
+              placeholder="Describe the purpose of this prompt…"
+            />
           </div>
         </div>
       </Modal>
