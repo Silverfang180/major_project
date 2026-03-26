@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Topbar } from "../components/layout/Topbar";
 import { Badge } from "../components/shared/Badge";
-import { Check, Eye, EyeOff } from "lucide-react";
+import { Check, Eye, EyeOff, Moon, Sun, Monitor } from "lucide-react";
 
 const pricingData = [
   { model: "GPT-4o", provider: "OpenAI", inputPrice: "$2.50 / 1M", outputPrice: "$10.00 / 1M" },
@@ -12,8 +12,16 @@ const pricingData = [
   { model: "Llama 3 8B", provider: "Groq", inputPrice: "$0.05 / 1M", outputPrice: "$0.08 / 1M" },
 ];
 
+const themeOptions = [
+  { id: "dark", label: "Dark", icon: Moon, description: "Deep navy dark mode" },
+  { id: "light", label: "Light", icon: Sun, description: "Clean bright mode" },
+  { id: "system", label: "System", icon: Monitor, description: "Match OS preference" },
+];
+
 export function SettingsPage() {
-  const [theme, setTheme] = useState("dark");
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("chronicle-theme") || "dark";
+  });
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [env, setEnv] = useState("production");
 
@@ -23,6 +31,27 @@ export function SettingsPage() {
     { name: "Groq", key: "gsk_...def", status: "active" },
   ];
 
+  // Apply theme to the DOM
+  useEffect(() => {
+    applyTheme(theme);
+    localStorage.setItem("chronicle-theme", theme);
+  }, [theme]);
+
+  function applyTheme(t: string) {
+    const root = document.documentElement;
+    if (t === "system") {
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      root.classList.toggle("dark", prefersDark);
+      root.classList.toggle("light", !prefersDark);
+    } else if (t === "light") {
+      root.classList.remove("dark");
+      root.classList.add("light");
+    } else {
+      root.classList.remove("light");
+      root.classList.add("dark");
+    }
+  }
+
   return (
     <div>
       <Topbar title="Settings" subtitle="Application configuration" />
@@ -30,21 +59,23 @@ export function SettingsPage() {
         {/* Theme */}
         <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-6">
           <h3 className="text-white text-[0.9375rem] mb-4">Theme</h3>
-          <div className="flex gap-3">
-            {["dark", "light", "matte"].map((t) => (
+          <div className="grid grid-cols-3 gap-3">
+            {themeOptions.map((t) => (
               <button
-                key={t}
-                onClick={() => setTheme(t)}
-                className={`px-6 py-3 rounded-xl text-[0.8125rem] border transition-all ${
-                  theme === t
-                    ? "border-indigo-500 bg-indigo-500/10 text-indigo-400"
-                    : "border-slate-700 text-slate-400 hover:border-slate-600"
+                key={t.id}
+                onClick={() => setTheme(t.id)}
+                className={`flex flex-col items-center gap-2 p-4 rounded-xl text-[0.8125rem] border transition-all ${
+                  theme === t.id
+                    ? "border-indigo-500 bg-indigo-500/10 text-indigo-400 shadow-lg shadow-indigo-500/10"
+                    : "border-slate-700 text-slate-400 hover:border-slate-600 hover:bg-slate-800/50"
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  {theme === t && <Check size={14} />}
-                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                <t.icon size={20} />
+                <div className="flex items-center gap-1.5">
+                  {theme === t.id && <Check size={14} />}
+                  {t.label}
                 </div>
+                <span className="text-[0.6875rem] text-slate-500">{t.description}</span>
               </button>
             ))}
           </div>
@@ -79,21 +110,21 @@ export function SettingsPage() {
         <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-6">
           <h3 className="text-white text-[0.9375rem] mb-4">API Keys</h3>
           <div className="space-y-3">
-            {apiKeys.map((api) => (
-              <div key={api.name} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
+            {apiKeys.map((apiItem) => (
+              <div key={apiItem.name} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
                 <div className="flex items-center gap-3">
-                  <span className="text-[0.8125rem] text-white w-24">{api.name}</span>
+                  <span className="text-[0.8125rem] text-white w-24">{apiItem.name}</span>
                   <code className="text-[0.75rem] text-slate-400 font-mono bg-slate-900 px-2 py-1 rounded">
-                    {showKeys[api.name] ? api.key.replace("...", "1234567890") : api.key}
+                    {showKeys[apiItem.name] ? apiItem.key.replace("...", "1234567890") : apiItem.key}
                   </code>
                   <button
-                    onClick={() => setShowKeys((p) => ({ ...p, [api.name]: !p[api.name] }))}
+                    onClick={() => setShowKeys((p) => ({ ...p, [apiItem.name]: !p[apiItem.name] }))}
                     className="text-slate-500 hover:text-slate-300"
                   >
-                    {showKeys[api.name] ? <EyeOff size={14} /> : <Eye size={14} />}
+                    {showKeys[apiItem.name] ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
                 </div>
-                <Badge variant="success">{api.status}</Badge>
+                <Badge variant="success">{apiItem.status}</Badge>
               </div>
             ))}
           </div>
