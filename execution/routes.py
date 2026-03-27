@@ -7,9 +7,11 @@ POST /execute/{prompt_key}?alias=production
 
 import logging
 import time
+import os
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Depends, Query, Response
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,7 +26,7 @@ from execution.variable_engine import (
     VariableError
 )
 from execution.llm_service import call_llm, LLMError
-from execution.pricing import calculate_cost
+from execution.pricing import calculate_cost, MODEL_PRICING
 
 
 logger = logging.getLogger(__name__)
@@ -39,6 +41,99 @@ async def list_runs(db: AsyncSession = Depends(get_session)):
     result = await db.execute(stmt)
     runs = result.scalars().all()
     return [RunRead.model_validate(r) for r in runs]
+
+
+@router.get("/pricing")
+async def get_model_pricing():
+    """Return the current model pricing list."""
+    pricing_list = []
+    for model_name, costs in MODEL_PRICING.items():
+        # Determine provider heuristically
+        lower_name = model_name.lower()
+        if "gpt" in lower_name:
+            provider = "OpenAI"
+        elif "gemini" in lower_name:
+            provider = "Google"
+        elif "llama" in lower_name or "moonshot" in lower_name:
+            provider = "Groq"
+        else:
+            provider = "Other"
+
+        # Special formatting for very small numbers to avoid $0.00
+        input_1m = costs['input_cost_per_1k'] * 1000
+        output_1m = costs['output_cost_per_1k'] * 1000
+        
+        input_str = f"${input_1m:.3f}".rstrip('0').rstrip('.') if input_1m < 0.01 else f"${input_1m:.2f}"
+        output_str = f"${output_1m:.3f}".rstrip('0').rstrip('.') if output_1m < 0.01 else f"${output_1m:.2f}"
+
+        pricing_list.append({
+            "model": model_name,
+            "provider": provider,
+            "inputPrice": f"{input_str} / 1M",
+            "outputPrice": f"{output_str} / 1M"
+        })
+    return pricing_list
+
+
+@router.get("/config/keys")
+async def get_api_keys():
+    """Return configured API keys (masked)."""
+    keys_config = [
+        {"name": "OpenAI", "env_var": "OPENAI_API_KEY"},
+        {"name": "Google AI", "env_var": "GEMINI_API_KEY"},
+        {"name": "Groq", "env_var": "GROQ_API_KEY"},
+    ]
+    
+    response = []
+    for k in keys_config:
+        val = os.getenv(k["env_var"], "")
+        masked = f"{val[:4]}...{val[-4:]}" if len(val) > 8 else ("" if not val else "***")
+        response.append({
+            "name": k["name"],
+            "key": masked,
+            "status": "active" if val else "missing"
+        })
+    return response
+
+
+class ApiKeyUpdate(BaseModel):
+    name: str
+    key: str
+
+@router.post("/config/keys")
+async def update_api_key(payload: ApiKeyUpdate):
+    """Update an API key in the .env file and memory."""
+    env_map = {
+        "OpenAI": "OPENAI_API_KEY",
+        "Google AI": "GEMINI_API_KEY",
+        "Groq": "GROQ_API_KEY"
+    }
+    env_var = env_map.get(payload.name)
+    if not env_var:
+        raise HTTPException(400, "Unknown provider")
+        
+    os.environ[env_var] = payload.key
+    
+    env_path = ".env"
+    if os.path.exists(env_path):
+        with open(env_path, "r") as f:
+            lines = f.readlines()
+            
+        found = False
+        with open(env_path, "w") as f:
+            for line in lines:
+                if line.startswith(f"{env_var}="):
+                    f.write(f"{env_var}={payload.key}\n")
+                    found = True
+                else:
+                    f.write(line)
+            if not found:
+                f.write(f"\n{env_var}={payload.key}\n")
+    else:
+        with open(env_path, "w") as f:
+            f.write(f"{env_var}={payload.key}\n")
+            
+    return {"status": "success"}
 
 
 @router.post("/execute/{prompt_key}", response_model=ExecuteResponse)

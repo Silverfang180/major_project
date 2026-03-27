@@ -1,35 +1,51 @@
 import { useState, useEffect } from "react";
 import { Topbar } from "../components/layout/Topbar";
 import { Badge } from "../components/shared/Badge";
-import { Check, Eye, EyeOff, Moon, Sun, Monitor } from "lucide-react";
-
-const pricingData = [
-  { model: "GPT-4o", provider: "OpenAI", inputPrice: "$2.50 / 1M", outputPrice: "$10.00 / 1M" },
-  { model: "GPT-4o-mini", provider: "OpenAI", inputPrice: "$0.15 / 1M", outputPrice: "$0.60 / 1M" },
-  { model: "Gemini Pro", provider: "Google", inputPrice: "$0.50 / 1M", outputPrice: "$1.50 / 1M" },
-  { model: "Gemini Flash", provider: "Google", inputPrice: "$0.075 / 1M", outputPrice: "$0.30 / 1M" },
-  { model: "Llama 3 70B", provider: "Groq", inputPrice: "$0.59 / 1M", outputPrice: "$0.79 / 1M" },
-  { model: "Llama 3 8B", provider: "Groq", inputPrice: "$0.05 / 1M", outputPrice: "$0.08 / 1M" },
-];
+import { Check, Eye, EyeOff, Moon, Sun, Monitor, Loader2, Save } from "lucide-react";
+import { api } from "../../lib/api";
+import { toast } from "sonner";
 
 const themeOptions = [
-  { id: "dark", label: "Dark", icon: Moon, description: "Deep navy dark mode" },
+  { id: "matte", label: "Matte", icon: Moon, description: "Warm off-black default" },
+  { id: "dark", label: "Dark", icon: Monitor, description: "Deep navy dark mode" },
   { id: "light", label: "Light", icon: Sun, description: "Clean bright mode" },
-  { id: "system", label: "System", icon: Monitor, description: "Match OS preference" },
 ];
 
 export function SettingsPage() {
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("chronicle-theme") || "dark";
+    return localStorage.getItem("chronicle-theme") || "matte";
   });
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
-  const [env, setEnv] = useState("production");
+  const [env, setEnv] = useState(() => {
+    return localStorage.getItem("chronicle-env") || "production";
+  });
+  const [pricingData, setPricingData] = useState<any[]>([]);
+  const [loadingPricing, setLoadingPricing] = useState(true);
+  
+  const [apiKeys, setApiKeys] = useState<{name: string, key: string, status: string}[]>([]);
+  const [loadingKeys, setLoadingKeys] = useState(true);
+  const [editKeys, setEditKeys] = useState<Record<string, string>>({});
 
-  const apiKeys = [
-    { name: "OpenAI", key: "sk-proj-abc...xyz", status: "active" },
-    { name: "Google AI", key: "AIza...789", status: "active" },
-    { name: "Groq", key: "gsk_...def", status: "active" },
-  ];
+  useEffect(() => {
+    api.getPricing().then(setPricingData).finally(() => setLoadingPricing(false));
+    api.getApiKeys().then(setApiKeys).finally(() => setLoadingKeys(false));
+  }, []);
+
+  async function handleUpdateKey(name: string) {
+    const newKey = editKeys[name];
+    if (!newKey || !newKey.trim()) return;
+    try {
+      await api.updateApiKey(name, newKey);
+      toast.success(`${name} API Key updated securely.`);
+      setEditKeys((prev) => ({ ...prev, [name]: "" }));
+      // Refetch keys to get updated masked version
+      const updated = await api.getApiKeys();
+      setApiKeys(updated);
+    } catch (e: any) {
+      toast.error(`Failed to update key: ${e.message}`);
+    }
+  }
+
 
   // Apply theme to the DOM
   useEffect(() => {
@@ -37,19 +53,17 @@ export function SettingsPage() {
     localStorage.setItem("chronicle-theme", theme);
   }, [theme]);
 
+  // Save env to localstorage
+  useEffect(() => {
+    localStorage.setItem("chronicle-env", env);
+  }, [env]);
+
   function applyTheme(t: string) {
     const root = document.documentElement;
-    if (t === "system") {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      root.classList.toggle("dark", prefersDark);
-      root.classList.toggle("light", !prefersDark);
-    } else if (t === "light") {
-      root.classList.remove("dark");
-      root.classList.add("light");
-    } else {
-      root.classList.remove("light");
-      root.classList.add("dark");
-    }
+    root.classList.remove("light", "dark", "matte");
+    if (t === "light") root.classList.add("light");
+    else if (t === "dark") root.classList.add("dark");
+    else root.classList.add("matte"); // Default to matte
   }
 
   return (
@@ -110,23 +124,49 @@ export function SettingsPage() {
         <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-6">
           <h3 className="text-white text-[0.9375rem] mb-4">API Keys</h3>
           <div className="space-y-3">
-            {apiKeys.map((apiItem) => (
-              <div key={apiItem.name} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <span className="text-[0.8125rem] text-white w-24">{apiItem.name}</span>
-                  <code className="text-[0.75rem] text-slate-400 font-mono bg-slate-900 px-2 py-1 rounded">
-                    {showKeys[apiItem.name] ? apiItem.key.replace("...", "1234567890") : apiItem.key}
-                  </code>
-                  <button
-                    onClick={() => setShowKeys((p) => ({ ...p, [apiItem.name]: !p[apiItem.name] }))}
-                    className="text-slate-500 hover:text-slate-300"
-                  >
-                    {showKeys[apiItem.name] ? <EyeOff size={14} /> : <Eye size={14} />}
-                  </button>
-                </div>
-                <Badge variant="success">{apiItem.status}</Badge>
+            {loadingKeys ? (
+              <div className="py-4 flex items-center gap-2 justify-center text-slate-500 text-sm">
+                <Loader2 size={16} className="animate-spin" /> Loading configuration...
               </div>
-            ))}
+            ) : (
+              apiKeys.map((apiItem) => (
+                <div key={apiItem.name} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-slate-800/50 rounded-lg gap-3">
+                  <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <span className="text-[0.8125rem] text-white w-24 shrink-0">{apiItem.name}</span>
+                    <div className="relative flex-1 sm:w-64">
+                      <input
+                        type={showKeys[apiItem.name] ? "text" : "password"}
+                        className="w-full text-[0.75rem] text-slate-300 font-mono bg-slate-900 border border-slate-700 focus:border-indigo-500 rounded-md px-3 py-1.5 outline-none"
+                        placeholder={apiItem.key || "Paste new API key here..."}
+                        value={editKeys[apiItem.name] !== undefined ? editKeys[apiItem.name] : ""}
+                        onChange={(e) => setEditKeys({ ...editKeys, [apiItem.name]: e.target.value })}
+                        onKeyDown={(e) => e.key === "Enter" && handleUpdateKey(apiItem.name)}
+                      />
+                      <button
+                        onClick={() => setShowKeys((p) => ({ ...p, [apiItem.name]: !p[apiItem.name] }))}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                        title={showKeys[apiItem.name] ? "Hide key" : "Show key"}
+                      >
+                        {showKeys[apiItem.name] ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                    {editKeys[apiItem.name] && editKeys[apiItem.name].trim().length > 0 && (
+                      <button
+                        onClick={() => handleUpdateKey(apiItem.name)}
+                        className="flex items-center gap-1.5 text-[0.6875rem] bg-indigo-500 hover:bg-indigo-600 text-white px-2 py-1.5 rounded-md transition-colors"
+                      >
+                        <Save size={12} /> Save
+                      </button>
+                    )}
+                    <Badge variant={apiItem.status === "active" ? "success" : "neutral"}>
+                      {apiItem.status}
+                    </Badge>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -142,14 +182,27 @@ export function SettingsPage() {
               </tr>
             </thead>
             <tbody>
-              {pricingData.map((row) => (
-                <tr key={row.model} className="border-b border-slate-700/30">
-                  <td className="px-3 py-2.5 text-[0.8125rem] text-white">{row.model}</td>
-                  <td className="px-3 py-2.5"><Badge variant="info">{row.provider}</Badge></td>
-                  <td className="px-3 py-2.5 text-[0.8125rem] text-slate-300">{row.inputPrice}</td>
-                  <td className="px-3 py-2.5 text-[0.8125rem] text-slate-300">{row.outputPrice}</td>
+              {loadingPricing ? (
+                <tr>
+                  <td colSpan={4} className="px-3 py-6 text-center text-slate-500 text-[0.8125rem]">
+                    <Loader2 size={16} className="animate-spin inline mr-2" />
+                    Loading current pricing...
+                  </td>
                 </tr>
-              ))}
+              ) : pricingData.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-3 py-6 text-center text-slate-500 text-[0.8125rem]">No pricing data available.</td>
+                </tr>
+              ) : (
+                pricingData.map((row) => (
+                  <tr key={row.model} className="border-b border-slate-700/30">
+                    <td className="px-3 py-2.5 text-[0.8125rem] text-white">{row.model}</td>
+                    <td className="px-3 py-2.5"><Badge variant="info">{row.provider}</Badge></td>
+                    <td className="px-3 py-2.5 text-[0.8125rem] text-slate-300">{row.inputPrice}</td>
+                    <td className="px-3 py-2.5 text-[0.8125rem] text-slate-300">{row.outputPrice}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

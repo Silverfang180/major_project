@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Topbar } from "../components/layout/Topbar";
 import { Badge } from "../components/shared/Badge";
-import { GitBranch, Loader2 } from "lucide-react";
+import { GitBranch, Loader2, Trash2 } from "lucide-react";
 import { api, type PromptResponse, type VersionResponse } from "../../lib/api";
+import { toast } from "sonner";
 
 interface VersionWithPrompt extends VersionResponse {
   promptKey: string;
@@ -54,6 +55,23 @@ export function VersionsPage() {
 
   const promptCount = new Set(versions.map((v) => v.prompt_id)).size;
 
+  async function handleDeleteVersion(versionId: number, isProduction: boolean) {
+    if (isProduction) {
+      toast.error("Cannot delete a production version. Promote a different version first.");
+      return;
+    }
+    if (!confirm(`Are you sure you want to delete Version ${versionId}?`)) return;
+
+    try {
+      await api.deleteVersion(versionId);
+      toast.success(`Version ${versionId} deleted successfully.`);
+      // Optimistic update
+      setVersions((prev) => prev.filter((v) => v.version_id !== versionId));
+    } catch (e: any) {
+      toast.error(`Failed to delete version: ${e.message}`);
+    }
+  }
+
   return (
     <div>
       <Topbar title="Versions" subtitle="All prompt versions across the system" />
@@ -71,7 +89,7 @@ export function VersionsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-700/50">
-                  {["Version ID", "Prompt", "Ordinal", "Settings", "Status", "Created"].map((h) => (
+                  {["Version ID", "Prompt", "Ordinal", "Settings", "Status", "Created", "Actions"].map((h) => (
                     <th key={h} className="text-left text-[0.75rem] text-slate-500 px-4 py-3">{h}</th>
                   ))}
                 </tr>
@@ -99,6 +117,19 @@ export function VersionsPage() {
                           : <Badge variant="neutral">archived</Badge>}
                     </td>
                     <td className="px-4 py-3 text-[0.8125rem] text-slate-500">{new Date(v.created_at).toLocaleDateString()}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => handleDeleteVersion(v.version_id, v.productionVersionId === v.version_id)}
+                        className={`p-1.5 rounded-lg transition-colors ${
+                          v.productionVersionId === v.version_id
+                            ? "text-slate-600 cursor-not-allowed"
+                            : "text-slate-500 hover:text-rose-400 hover:bg-rose-500/10"
+                        }`}
+                        title={v.productionVersionId === v.version_id ? "Cannot delete production version" : "Delete version"}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

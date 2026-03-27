@@ -206,6 +206,7 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
         headers: {
             'Content-Type': 'application/json',
             'X-API-Key': 'chronicle-dev-key',
+            'X-Chronicle-Env': localStorage.getItem('chronicle-env') || 'production',
             ...(options?.headers || {}),
         },
     });
@@ -230,16 +231,21 @@ export const api = {
         return apiFetch(`${VC_BASE}/prompts/${promptId}`);
     },
 
-    async createPrompt(key: string, title: string, createdBy?: string): Promise<PromptResponse> {
+    async createPrompt(key: string, title: string, createdBy?: string, description?: string): Promise<PromptResponse> {
         const identity = createdBy || await getIdentity();
         return apiFetch(`${VC_BASE}/prompts`, {
             method: 'POST',
-            body: JSON.stringify({ key, title, created_by: identity }),
+            body: JSON.stringify({ key, title, created_by: identity, description }),
         });
     },
 
     async deletePrompt(promptId: string, permanent = false): Promise<void> {
         const url = `${VC_BASE}/prompts/${promptId}${permanent ? '?permanent=true' : ''}`;
+        await apiFetch(url, { method: 'DELETE' });
+    },
+
+    async deleteVersion(versionId: number, permanent = false): Promise<void> {
+        const url = `${VC_BASE}/versions/${versionId}${permanent ? '?permanent=true' : ''}`;
         await apiFetch(url, { method: 'DELETE' });
     },
 
@@ -373,6 +379,13 @@ export const api = {
         return apiFetch(`${EVAL_BASE}/compare/dataset/${datasetId}`);
     },
 
+    async compareJobs(jobIds: string[]): Promise<CompareResponse> {
+        return apiFetch(`${EVAL_BASE}/compare`, {
+            method: 'POST',
+            body: JSON.stringify({ job_ids: jobIds }),
+        });
+    },
+
     async getDashboard(): Promise<DashboardResponse> {
         return apiFetch(`${EVAL_BASE}/dashboard`);
     },
@@ -389,6 +402,21 @@ export const api = {
             model: r.raw_response?.model || 'unknown',
             error_detail: r.error_message || undefined,
         }));
+    },
+    
+    async getPricing(): Promise<any[]> {
+        return apiFetch(`${EXEC_BASE}/pricing`);
+    },
+
+    async getApiKeys(): Promise<any[]> {
+        return apiFetch(`${EXEC_BASE}/config/keys`);
+    },
+
+    async updateApiKey(name: string, key: string): Promise<any> {
+        return apiFetch(`${EXEC_BASE}/config/keys`, {
+            method: 'POST',
+            body: JSON.stringify({ name, key }),
+        });
     },
 
     // Health

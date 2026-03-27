@@ -165,25 +165,22 @@ export function PromptsPage() {
   const [newDesc, setNewDesc] = useState("");
   const [keyManuallyEdited, setKeyManuallyEdited] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [keySuffix, setKeySuffix] = useState("");
 
   // ── helpers ───────────────────────────────────────────────────────────────
-  function slugify(title: string) {
-    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
-    const sfx = Math.random().toString(36).slice(2, 8);
-    return slug ? `${slug}-${sfx}` : sfx;
-  }
-
   function handleTitleChange(v: string) {
     setNewTitle(v);
     if (!keyManuallyEdited) {
       const slug = v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
-      setNewKey(slug || "");
+      const sfx = keySuffix || Math.random().toString(36).slice(2, 8);
+      if (!keySuffix) setKeySuffix(sfx);
+      setNewKey(slug ? `${slug}-${sfx}` : sfx);
     }
   }
 
   function resetCreateModal() {
     setNewTitle(""); setNewKey(""); setNewDesc("");
-    setKeyManuallyEdited(false); setCreating(false);
+    setKeyManuallyEdited(false); setCreating(false); setKeySuffix("");
   }
 
   // ── data loaders ──────────────────────────────────────────────────────────
@@ -223,12 +220,12 @@ export function PromptsPage() {
 
   async function handleCreate() {
     if (!newTitle.trim()) return;
-    const finalKey = keyManuallyEdited ? newKey.trim() : slugify(newTitle.trim());
+    const finalKey = newKey.trim();
     if (!finalKey) return;
     setCreating(true);
     try {
       const identity = await getIdentity();
-      const prompt = await api.createPrompt(finalKey, newTitle.trim(), identity);
+      const prompt = await api.createPrompt(finalKey, newTitle.trim(), identity, newDesc.trim());
       await loadPrompts();
       setCreateOpen(false);
       resetCreateModal();

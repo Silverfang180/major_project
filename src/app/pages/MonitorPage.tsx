@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router";
 import { Topbar } from "../components/layout/Topbar";
 import { StatCard } from "../components/shared/StatCard";
 import { LayoutDashboard, Target, GitCommit, FileStack, ShieldAlert, Loader2 } from "lucide-react";
 import { api, type DashboardResponse } from "../../lib/api";
 
 export function MonitorPage() {
+  const navigate = useNavigate();
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,11 +50,11 @@ export function MonitorPage() {
       <Topbar title="Monitor" subtitle="Executive overview of PromptOps platform" />
       <div className="p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <StatCard title="Total Associated Prompts" value={data.total_prompts.toString()} icon={<Target size={20} />} />
-          <StatCard title="Total Versions Tracked" value={data.total_versions.toString()} icon={<GitCommit size={20} />} trend={{ value: "12", positive: true }} />
-          <StatCard title="Total API Runs" value={data.total_runs.toLocaleString()} icon={<LayoutDashboard size={20} />} trend={{ value: "5", positive: true }} />
-          <StatCard title="Evaluation Jobs" value={data.total_eval_jobs.toString()} icon={<ShieldAlert size={20} />} />
-          <StatCard title="Datasets" value={data.total_datasets.toString()} icon={<FileStack size={20} />} />
+          <StatCard title="Total Associated Prompts" value={data.total_prompts.toString()} icon={<Target size={20} />} onClick={() => navigate("/")} />
+          <StatCard title="Total Versions Tracked" value={data.total_versions.toString()} icon={<GitCommit size={20} />} trend={{ value: "12", positive: true }} onClick={() => navigate("/versions")} />
+          <StatCard title="Total API Runs" value={data.total_runs.toLocaleString()} icon={<LayoutDashboard size={20} />} trend={{ value: "5", positive: true }} onClick={() => navigate("/runs")} />
+          <StatCard title="Evaluation Jobs" value={data.total_eval_jobs.toString()} icon={<ShieldAlert size={20} />} onClick={() => navigate("/eval-jobs")} />
+          <StatCard title="Datasets" value={data.total_datasets.toString()} icon={<FileStack size={20} />} onClick={() => navigate("/datasets")} />
           <StatCard title="Accumulated Cost" value={`$${data.total_cost_usd.toFixed(2)}`} valueColor="text-amber-400" />
         </div>
 

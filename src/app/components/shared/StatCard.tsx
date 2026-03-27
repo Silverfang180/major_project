@@ -7,11 +7,17 @@ interface StatCardProps {
   icon?: ReactNode;
   trend?: { value: string; positive: boolean };
   valueColor?: string;
+  onClick?: () => void;
 }
 
-export function StatCard({ title, value, subtitle, icon, trend, valueColor = "text-white" }: StatCardProps) {
+export function StatCard({ title, value, subtitle, icon, trend, valueColor = "text-white", onClick }: StatCardProps) {
   return (
-    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 shadow-lg shadow-indigo-500/5">
+    <div 
+      onClick={onClick}
+      className={`bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 shadow-lg shadow-indigo-500/5 ${
+        onClick ? "cursor-pointer hover:bg-slate-800/80 hover:border-indigo-500/50 transition-colors" : ""
+      }`}
+    >
       <div className="flex items-start justify-between">
         <div>
           <p className="text-slate-400 text-[0.8125rem] mb-1">{title}</p>
