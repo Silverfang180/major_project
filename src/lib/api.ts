@@ -14,32 +14,19 @@ async function sha256(message: string): Promise<string> {
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-let _cachedIdentity: string | null = null;
-
-// Generate or retrieve a persistent identity hash based on browser fingerprint
 export async function getIdentity(): Promise<string> {
-    if (_cachedIdentity) return _cachedIdentity;
-
-    // Check localStorage for a previously generated identity
-    const stored = localStorage.getItem('chronicle-identity');
-    if (stored && stored.length === 64) {
-        _cachedIdentity = stored;
-        return stored;
+    const storedUser = localStorage.getItem('chronicle-user');
+    if (storedUser) {
+        try {
+            const user = JSON.parse(storedUser);
+            if (user.id) return user.id;
+        } catch (e) {
+            console.error("Failed to parse stored user", e);
+        }
     }
-
-    // Generate a fingerprint from browser environment
-    const fingerprint = [
-        navigator.userAgent,
-        screen.width + 'x' + screen.height,
-        Intl.DateTimeFormat().resolvedOptions().timeZone,
-        new Date().getTimezoneOffset().toString(),
-        crypto.randomUUID(),  // ensures uniqueness per device
-    ].join('|');
-
-    const hash = await sha256(fingerprint);
-    localStorage.setItem('chronicle-identity', hash);
-    _cachedIdentity = hash;
-    return hash;
+    
+    // Fallback for unauthenticated access (e.g., before login is complete)
+    return 'anonymous-session';
 }
 
 // ---------- Types ----------
@@ -207,6 +194,7 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
             'Content-Type': 'application/json',
             'X-API-Key': 'chronicle-dev-key',
             'X-Chronicle-Env': localStorage.getItem('chronicle-env') || 'production',
+            'X-Chronicle-User': await getIdentity(),
             ...(options?.headers || {}),
         },
     });

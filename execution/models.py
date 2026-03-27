@@ -24,6 +24,7 @@ class Run(Base):
     __tablename__ = "runs"
 
     run_id = Column(BigInteger, primary_key=True, autoincrement=True)
+    created_by = Column(Text, nullable=False, server_default='legacy-user')
     
     # Reference to the version that was executed
     version_id = Column(

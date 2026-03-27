@@ -4,7 +4,7 @@ import uuid
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Depends, Query, status
+from fastapi import APIRouter, HTTPException, Depends, Query, status, Header
 from sqlalchemy import select, func, desc, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -82,15 +82,15 @@ async def list_prompts(
     db: AsyncSession = Depends(get_session),
     limit: int = Query(default=50, le=100, ge=1),
     offset: int = Query(default=0, ge=0),
-    created_by: Optional[str] = Query(default=None)
+    x_chronicle_user: str = Header(default="legacy-user", alias="X-Chronicle-User")
 ):
     """List prompts with their latest version."""
     stmt = select(Prompt).options(
         selectinload(Prompt.versions)
-    ).where(Prompt.deleted_at.is_(None)).order_by(desc(Prompt.created_at))
-
-    if created_by:
-        stmt = stmt.where(Prompt.created_by == created_by)
+    ).where(
+        Prompt.deleted_at.is_(None),
+        Prompt.created_by == x_chronicle_user
+    ).order_by(desc(Prompt.created_at))
 
     stmt = stmt.limit(limit).offset(offset)
     result = await db.execute(stmt)

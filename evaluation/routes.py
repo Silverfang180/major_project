@@ -4,7 +4,7 @@ import json
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Header
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,13 +32,23 @@ async def create_dataset(
     return data
 
 @router.get("/datasets", response_model=List[DatasetResponse])
-async def list_datasets(db: AsyncSession = Depends(get_session)):
+async def list_datasets(
+    db: AsyncSession = Depends(get_session),
+    x_chronicle_user: str = Header(default="legacy-user", alias="X-Chronicle-User")
+):
+    from sqlalchemy import or_
     stmt = (
         select(
             Dataset, 
             func.count(DatasetExample.example_id).label("example_count")
         )
         .outerjoin(DatasetExample, Dataset.dataset_id == DatasetExample.dataset_id)
+        .where(
+            or_(
+                Dataset.created_by == x_chronicle_user,
+                Dataset.created_by == 'seed-script-a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4'
+            )
+        )
         .group_by(Dataset.dataset_id)
         .order_by(Dataset.created_at.desc())
     )
@@ -199,8 +209,11 @@ from .schemas import EvalJobCreate, EvalJobResponse, EvalResultResponse
 from .orchestrator import run_eval_job
 
 @router.get("/jobs", response_model=List[EvalJobResponse])
-async def list_jobs(db: AsyncSession = Depends(get_session)):
-    stmt = select(EvalJob).order_by(EvalJob.created_at.desc())
+async def list_jobs(
+    db: AsyncSession = Depends(get_session),
+    x_chronicle_user: str = Header(default="legacy-user", alias="X-Chronicle-User")
+):
+    stmt = select(EvalJob).where(EvalJob.created_by == x_chronicle_user).order_by(EvalJob.created_at.desc())
     result = await db.execute(stmt)
     jobs = result.scalars().all()
     return [
@@ -582,17 +595,44 @@ async def auto_compare_dataset(dataset_id: UUID, db: AsyncSession = Depends(get_
     }
 
 @router.get("/dashboard", response_model=DashboardResponse)
-async def get_dashboard(db: AsyncSession = Depends(get_session)):
+async def get_dashboard(
+    db: AsyncSession = Depends(get_session),
+    x_chronicle_user: str = Header(default="legacy-user", alias="X-Chronicle-User")
+):
     from .models import Dataset, EvalJob
     from version_control.models import Prompt, PromptVersion
     from execution.models import Run
+    from sqlalchemy import or_
     
-    total_prompts = (await db.execute(select(func.count(Prompt.prompt_id)))).scalar() or 0
-    total_versions = (await db.execute(select(func.count(PromptVersion.version_id)))).scalar() or 0
-    total_runs = (await db.execute(select(func.count(Run.run_id)))).scalar() or 0
-    total_eval_jobs = (await db.execute(select(func.count(EvalJob.job_id)))).scalar() or 0
-    total_datasets = (await db.execute(select(func.count(Dataset.dataset_id)))).scalar() or 0
-    total_cost = (await db.execute(select(func.coalesce(func.sum(Run.cost_usd), 0.0)))).scalar() or 0.0
+    total_prompts = (await db.execute(
+        select(func.count(Prompt.prompt_id)).where(Prompt.created_by == x_chronicle_user)
+    )).scalar() or 0
+    
+    # Simple count of versions created by the user
+    total_versions = (await db.execute(
+        select(func.count(PromptVersion.version_id)).where(PromptVersion.created_by == x_chronicle_user)
+    )).scalar() or 0
+    
+    total_runs = (await db.execute(
+        select(func.count(Run.run_id)).where(Run.created_by == x_chronicle_user)
+    )).scalar() or 0
+    
+    total_eval_jobs = (await db.execute(
+        select(func.count(EvalJob.job_id)).where(EvalJob.created_by == x_chronicle_user)
+    )).scalar() or 0
+    
+    total_datasets = (await db.execute(
+        select(func.count(Dataset.dataset_id)).where(
+            or_(
+                Dataset.created_by == x_chronicle_user,
+                Dataset.created_by == 'seed-script-a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4'
+            )
+        )
+    )).scalar() or 0
+    
+    total_cost = (await db.execute(
+        select(func.coalesce(func.sum(Run.cost_usd), 0.0)).where(Run.created_by == x_chronicle_user)
+    )).scalar() or 0.0
     
     return {
         "total_prompts": total_prompts,

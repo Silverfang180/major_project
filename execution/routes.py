@@ -10,7 +10,7 @@ import time
 import os
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Depends, Query, Response
+from fastapi import APIRouter, HTTPException, Depends, Query, Response, Header
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,9 +35,12 @@ router = APIRouter(tags=["Execution"])
 
 
 @router.get("/runs")
-async def list_runs(db: AsyncSession = Depends(get_session)):
+async def list_runs(
+    db: AsyncSession = Depends(get_session),
+    x_chronicle_user: str = Header(default="legacy-user", alias="X-Chronicle-User")
+):
     from execution.schemas import RunRead
-    stmt = select(Run).order_by(Run.created_at.desc()).limit(100)
+    stmt = select(Run).where(Run.created_by == x_chronicle_user).order_by(Run.created_at.desc()).limit(100)
     result = await db.execute(stmt)
     runs = result.scalars().all()
     return [RunRead.model_validate(r) for r in runs]
@@ -143,7 +146,8 @@ async def execute_prompt(
     response: Response,
     version_id: Optional[int] = Query(default=None, description="Specific version to execute"),
     alias: str = Query(default="production", description="Alias to resolve (production only in Phase-1)"),
-    db: AsyncSession = Depends(get_session)
+    db: AsyncSession = Depends(get_session),
+    x_chronicle_user: str = Header(default="legacy-user", alias="X-Chronicle-User")
 ):
     """
     Execute a prompt with variable injection.
@@ -220,6 +224,7 @@ async def execute_prompt(
         raw_response={},
         latency_ms=0,
         status="pending",
+        created_by=x_chronicle_user,
     )
     db.add(run)
     await db.commit()

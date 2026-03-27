@@ -12,11 +12,14 @@ import { ModelComparisonsPage } from './app/pages/ModelComparisonsPage'
 import { ParetoPage } from './app/pages/ParetoPage'
 import { MonitorPage } from './app/pages/MonitorPage'
 import { SettingsPage } from './app/pages/SettingsPage'
+import { LoginPage } from './app/pages/LoginPage'
+import { AuthProvider } from './app/context/AuthContext'
 
 export default function App() {
     return (
-    <>
+    <AuthProvider>
         <Routes>
+            <Route path="/login" element={<LoginPage />} />
             <Route element={<AppLayout />}>
                 <Route index element={<PromptsPage />} />
                 <Route path="versions" element={<VersionsPage />} />
@@ -32,6 +35,6 @@ export default function App() {
             </Route>
         </Routes>
         <Toaster theme="dark" position="bottom-right" />
-    </>
+    </AuthProvider>
     )
 }
