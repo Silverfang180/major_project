@@ -166,10 +166,10 @@ async def compute_summary(job_id: UUID, db: "AsyncSession") -> EvalSummary:
     return summary
 
 
-def compute_pareto_frontier(summaries: list[EvalSummary]) -> list[dict]:
+def compute_pareto_frontier(summaries: list[EvalSummary], dimension: str = "cost") -> list[dict]:
     """
     Computes the Pareto frontier on two dimensions:
-      x: cost_per_correct (lower is better)
+      x: cost_per_correct or p50_latency_ms (lower is better)
       y: accuracy (higher is better)
 
     A summary is Pareto-optimal if no other summary is both
@@ -180,9 +180,11 @@ def compute_pareto_frontier(summaries: list[EvalSummary]) -> list[dict]:
       - dominates: list of job_id strings this summary dominates
       - dominated_by: list of job_id strings that dominate this summary
     """
+    x_key = "cost_per_correct" if dimension == "cost" else "p50_latency_ms"
+    
     # Separate placeable vs unplaceable (missing either axis value)
-    placeable = [s for s in summaries if s.cost_per_correct is not None and s.accuracy is not None]
-    unplaceable = [s for s in summaries if s.cost_per_correct is None or s.accuracy is None]
+    placeable = [s for s in summaries if getattr(s, x_key) is not None and s.accuracy is not None]
+    unplaceable = [s for s in summaries if getattr(s, x_key) is None or s.accuracy is None]
 
     # Build dicts for all summaries
     def _to_dict(s: EvalSummary) -> dict:
@@ -220,10 +222,10 @@ def compute_pareto_frontier(summaries: list[EvalSummary]) -> list[dict]:
         for j, other in enumerate(placeable_dicts):
             if i == j:
                 continue
-            # other dominates candidate if other is cheaper or equally cheap AND more accurate or equally accurate (strictly better in at least one)
-            if (other["cost_per_correct"] <= candidate["cost_per_correct"]
+            # other dominates candidate if other is cheaper/faster or equally cheap/faster AND more accurate or equally accurate (strictly better in at least one)
+            if (other[x_key] <= candidate[x_key]
                     and other["accuracy"] >= candidate["accuracy"]
-                    and (other["cost_per_correct"] < candidate["cost_per_correct"] or other["accuracy"] > candidate["accuracy"])):
+                    and (other[x_key] < candidate[x_key] or other["accuracy"] > candidate["accuracy"])):
                 candidate["dominated_by"].append(other["job_id"])
                 other["dominates"].append(candidate["job_id"])
 
@@ -254,24 +256,22 @@ def compute_pareto_frontier(summaries: list[EvalSummary]) -> list[dict]:
     return pareto_optimal + dominated + unplaceable_dicts
 
 
-def identify_knee_point(pareto_results: list[dict]) -> dict | None:
+def identify_knee_point(pareto_results: list[dict], dimension: str = "cost") -> dict | None:
     """
     Identifies the 'knee point' — the Pareto-optimal summary with the
-    best balance between cost and accuracy.
-    Uses the maximum perpendicular distance from the line connecting
-    the two extremes of the frontier (lowest-cost point and highest-accuracy point).
-    Returns the knee point summary dict (with is_knee_point: True added),
-    or None if fewer than 3 Pareto-optimal points exist.
+    best balance between cost/latency and accuracy.
     """
+    x_key = "cost_per_correct" if dimension == "cost" else "p50_latency_ms"
     frontier = [d for d in pareto_results if d.get("is_pareto_optimal")]
     if len(frontier) < 3:
         return None
 
-    # Sort by cost ascending so the first is cheapest and last is most expensive
-    frontier_sorted = sorted(frontier, key=lambda d: d["cost_per_correct"])
+    # Sort by cost/latency ascending so the first is cheapest/fastest and last is most expensive/slowest
+    frontier_sorted = sorted(frontier, key=lambda d: d[x_key])
 
-    costs = [d["cost_per_correct"] for d in frontier_sorted]
+    costs = [d[x_key] for d in frontier_sorted]
     accuracies = [d["accuracy"] for d in frontier_sorted]
+    # ... rest of the logic uses x1, x2 which are normalized ...
     n = len(frontier_sorted)
 
     # Normalize to [0, 1]
@@ -300,8 +300,8 @@ def identify_knee_point(pareto_results: list[dict]) -> dict | None:
     a_pt = frontier_sorted[0]   # cheapest
     b_pt = max(frontier_sorted, key=lambda d: d["accuracy"])  # most accurate
 
-    x1, y1 = _nc(a_pt["cost_per_correct"]), _na(a_pt["accuracy"])
-    x2, y2 = _nc(b_pt["cost_per_correct"]), _na(b_pt["accuracy"])
+    x1, y1 = _nc(a_pt[x_key]), _na(a_pt["accuracy"])
+    x2, y2 = _nc(b_pt[x_key]), _na(b_pt["accuracy"])
 
     # Direction vector of the line (x2-x1, y2-y1), length
     dx = x2 - x1
@@ -315,7 +315,7 @@ def identify_knee_point(pareto_results: list[dict]) -> dict | None:
     max_dist = -1.0
     knee = None
     for d in frontier_sorted:
-        px = _nc(d["cost_per_correct"])
+        px = _nc(d[x_key])
         py = _na(d["accuracy"])
         dist = abs(dy * (px - x1) - dx * (py - y1)) / line_len
         if dist > max_dist:
@@ -331,50 +331,55 @@ def identify_knee_point(pareto_results: list[dict]) -> dict | None:
 
 def generate_recommendation(
     frontier: list[dict],
-    knee_point: dict | None
+    knee_point: dict | None,
+    dimension: str = "cost"
 ) -> str:
     """
     Generates a plain English recommendation based on Pareto results.
     Pure function — no DB calls.
     """
+    x_key = "cost_per_correct" if dimension == "cost" else "p50_latency_ms"
+    dim_name = "cost" if dimension == "cost" else "latency"
+    dim_unit = "$/correct" if dimension == "cost" else "ms"
+
     if not frontier:
-        return "Insufficient data to make a recommendation. Run eval jobs and ensure evaluators populate is_correct."
+        return f"Insufficient data to make a recommendation. Run eval jobs and ensure evaluators populate is_correct."
 
     if len(frontier) == 1:
         return "Only one version evaluated. Add more prompt versions or models to enable comparison."
-
+    
     pareto_points = [p for p in frontier if p.get("is_pareto_optimal")]
 
     if len(pareto_points) == 1:
         best = pareto_points[0]
-        return f"Version {best['version_id']} on {best['model']} dominates all others — highest accuracy at lowest cost. Deploy it."
+        return f"Version {best['version_id']} on {best['model']} dominates all others — highest accuracy at lowest {dim_name}. Deploy it."
 
     if knee_point is not None:
         top_acc_pt = max(pareto_points, key=lambda d: d.get("accuracy") or 0.0)
 
         knee_acc = knee_point.get("accuracy") or 0.0
-        knee_cost = knee_point.get("cost_per_correct") or 0.0
+        knee_val = knee_point.get(x_key) or 0.0
         
         top_acc = top_acc_pt.get("accuracy") or 0.0
-        top_cost = top_acc_pt.get("cost_per_correct") or 0.0
+        top_val = top_acc_pt.get(x_key) or 0.0
         
-        if top_cost == 0.0 or knee_cost == 0.0:
-            cost_delta = 1.0
+        if top_val == 0.0 or knee_val == 0.0:
+            val_delta = 1.0
         else:
-            cost_delta = round(top_cost / knee_cost, 1)
+            val_delta = round(top_val / knee_val, 1)
 
-        return f"Version {knee_point['version_id']} on {knee_point['model']} offers the best cost-accuracy balance (knee point). Recommended for production unless accuracy above {knee_acc:.0%} is required, in which case Version {top_acc_pt['version_id']} achieves {top_acc:.0%} at {cost_delta}x the cost."
+        return f"Version {knee_point['version_id']} on {knee_point['model']} offers the best {dim_name}-accuracy balance (knee point). Recommended for production unless accuracy above {knee_acc:.0%} is required, in which case Version {top_acc_pt['version_id']} achieves {top_acc:.0%} at {val_delta}x the {dim_name}."
 
     if len(pareto_points) == 2:
         p1, p2 = pareto_points
         if (p1.get("accuracy") or 0.0) > (p2.get("accuracy") or 0.0):
-            high_acc, low_cost = p1, p2
+            high_acc, low_val = p1, p2
         else:
-            high_acc, low_cost = p2, p1
+            high_acc, low_val = p2, p1
 
         acc1 = high_acc.get("accuracy") or 0.0
-        cost2 = low_cost.get("cost_per_correct") or 0.0
-        return f"Two viable options: version {high_acc['version_id']} maximises accuracy ({acc1:.0%}), version {low_cost['version_id']} minimises cost (${cost2:.6f}/correct). Choose based on your constraint."
+        val2 = low_val.get(x_key) or 0.0
+        return f"Two viable options: version {high_acc['version_id']} maximises accuracy ({acc1:.0%}), version {low_val['version_id']} minimises {dim_name} ({val2:.1f}{dim_unit}). Choose based on your constraint."
 
     return "Insufficient data to make a recommendation. Run eval jobs and ensure evaluators populate is_correct."
 

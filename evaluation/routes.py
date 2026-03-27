@@ -515,7 +515,11 @@ class CompareRequest(BaseModel):
         return v
 
 @router.post("/compare", response_model=ComparisonResponse)
-async def compare_jobs(payload: CompareRequest, db: AsyncSession = Depends(get_session)):
+async def compare_jobs(
+    payload: CompareRequest, 
+    db: AsyncSession = Depends(get_session),
+    dimension: str = Query(default="cost")
+):
     from .models import EvalSummary
     from .metrics import compute_pareto_frontier, identify_knee_point, generate_recommendation
     from datetime import datetime
@@ -533,9 +537,9 @@ async def compare_jobs(payload: CompareRequest, db: AsyncSession = Depends(get_s
     if any(s.dataset_id != dataset_id for s in summaries):
         raise HTTPException(status_code=400, detail="All jobs must use the same dataset for meaningful comparison.")
         
-    frontier_results = compute_pareto_frontier(summaries)
-    knee_point = identify_knee_point(frontier_results)
-    rec = generate_recommendation(frontier_results, knee_point)
+    frontier_results = compute_pareto_frontier(summaries, dimension=dimension)
+    knee_point = identify_knee_point(frontier_results, dimension=dimension)
+    rec = generate_recommendation(frontier_results, knee_point, dimension=dimension)
     
     sorted_by_acc = sorted(frontier_results, key=lambda x: x.get("accuracy") or 0.0, reverse=True)
     rank_map = {d["job_id"]: i + 1 for i, d in enumerate(sorted_by_acc)}
@@ -558,7 +562,11 @@ async def compare_jobs(payload: CompareRequest, db: AsyncSession = Depends(get_s
     }
 
 @router.get("/compare/dataset/{dataset_id}", response_model=ComparisonResponse)
-async def auto_compare_dataset(dataset_id: UUID, db: AsyncSession = Depends(get_session)):
+async def auto_compare_dataset(
+    dataset_id: UUID, 
+    db: AsyncSession = Depends(get_session),
+    dimension: str = Query(default="cost")
+):
     from .models import EvalSummary
     from .metrics import compute_pareto_frontier, identify_knee_point, generate_recommendation
     from datetime import datetime
@@ -570,9 +578,9 @@ async def auto_compare_dataset(dataset_id: UUID, db: AsyncSession = Depends(get_
     if len(summaries) < 2:
         raise HTTPException(status_code=400, detail="Need at least 2 job summaries to compute frontier")
         
-    frontier_results = compute_pareto_frontier(summaries)
-    knee_point = identify_knee_point(frontier_results)
-    rec = generate_recommendation(frontier_results, knee_point)
+    frontier_results = compute_pareto_frontier(summaries, dimension=dimension)
+    knee_point = identify_knee_point(frontier_results, dimension=dimension)
+    rec = generate_recommendation(frontier_results, knee_point, dimension=dimension)
     
     sorted_by_acc = sorted(frontier_results, key=lambda x: x.get("accuracy") or 0.0, reverse=True)
     rank_map = {d["job_id"]: i + 1 for i, d in enumerate(sorted_by_acc)}

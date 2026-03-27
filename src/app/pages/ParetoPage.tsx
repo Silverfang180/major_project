@@ -7,6 +7,7 @@ import { Loader2, Target, TrendingUp, Zap } from "lucide-react";
 import { api, type DatasetResponse } from "../../lib/api";
 
 type PivotMode = "model" | "prompt";
+type DimensionMode = "cost" | "latency";
 
 const COLORS = ["#008cff", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16"];
 
@@ -14,6 +15,7 @@ export function ParetoPage() {
   const [datasets, setDatasets] = useState<DatasetResponse[]>([]);
   const [selectedDataset, setSelectedDataset] = useState("");
   const [pivot, setPivot] = useState<PivotMode>("model");
+  const [dimension, setDimension] = useState<DimensionMode>("cost");
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -27,7 +29,7 @@ export function ParetoPage() {
       setDatasets(d);
       if (d.length > 0) {
         setSelectedDataset(d[0].dataset_id);
-        loadPareto(d[0].dataset_id);
+        loadPareto(d[0].dataset_id, dimension);
       } else {
         setLoading(false);
       }
@@ -36,10 +38,10 @@ export function ParetoPage() {
     }
   }
 
-  async function loadPareto(dsId: string) {
+  async function loadPareto(dsId: string, dim: DimensionMode) {
     setLoading(true);
     try {
-      const resp = await api.getCompare(dsId);
+      const resp = await api.getCompare(dsId, dim);
       setData(resp);
     } catch {
       setData(null);
@@ -51,7 +53,14 @@ export function ParetoPage() {
   function handleDatasetChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const id = e.target.value;
     setSelectedDataset(id);
-    loadPareto(id);
+    loadPareto(id, dimension);
+  }
+
+  function handleDimensionChange(dim: DimensionMode) {
+    setDimension(dim);
+    if (selectedDataset) {
+      loadPareto(selectedDataset, dim);
+    }
   }
 
   // Build scatter data with labels based on pivot
@@ -61,7 +70,7 @@ export function ParetoPage() {
       name: pivot === "model"
         ? `${j.model} (v${j.version_id})`
         : `v${j.version_id} (${j.model})`,
-      cost: j.cost_per_correct || 0,
+      xValue: dimension === "cost" ? (j.cost_per_correct || 0) : (j.p50_latency_ms || 0),
       acc: (j.accuracy || 0) * 100,
       isPareto: j.is_pareto_optimal,
       isKnee: j.is_knee_point,
@@ -94,7 +103,7 @@ export function ParetoPage() {
 
   return (
     <div>
-      <Topbar title="Pareto Analysis" subtitle="Optimize models for cost and latency vs. accuracy" />
+      <Topbar title="Pareto Frontier" subtitle="Find the optimal balance between performance and constraints" />
       <div className="p-6">
         {/* Controls */}
         <div className="flex flex-wrap items-center gap-4 mb-6">
@@ -105,6 +114,33 @@ export function ParetoPage() {
             </select>
           </div>
           <div className="h-6 w-px bg-slate-700" />
+          
+          <div className="flex items-center gap-2">
+            <label className="text-[0.8125rem] text-slate-400">Optimize for:</label>
+            <div className="flex items-center gap-1 bg-slate-800/50 rounded-lg p-0.5 border border-slate-700/50">
+              <button
+                onClick={() => handleDimensionChange("cost")}
+                className={`px-3 py-1.5 rounded-md text-[0.8125rem] transition-all ${dimension === "cost"
+                  ? "bg-amber-600/20 text-amber-400 border border-amber-500/30"
+                  : "text-slate-400 hover:text-white border border-transparent"
+                  }`}
+              >
+                Cost
+              </button>
+              <button
+                onClick={() => handleDimensionChange("latency")}
+                className={`px-3 py-1.5 rounded-md text-[0.8125rem] transition-all ${dimension === "latency"
+                  ? "bg-blue-600/20 text-blue-400 border border-blue-500/30"
+                  : "text-slate-400 hover:text-white border border-transparent"
+                  }`}
+              >
+                Latency
+              </button>
+            </div>
+          </div>
+
+          <div className="h-6 w-px bg-slate-700" />
+
           <div className="flex items-center gap-1 bg-slate-800/50 rounded-lg p-0.5 border border-slate-700/50">
             <button
               onClick={() => setPivot("model")}
@@ -152,19 +188,22 @@ export function ParetoPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Scatter Chart */}
             <div className="lg:col-span-2 space-y-6">
-              <ChartCard title="Cost vs. Accuracy Frontier" subtitle="Optimal configurations lie on the top-left edge. The green dot is the knee point.">
+             <ChartCard 
+               title={dimension === "cost" ? "Cost-Accuracy Frontier" : "Latency-Accuracy Frontier"} 
+               subtitle={`Points on the edge represent the absolute best ${dimension} tradeoffs available.`}
+             >
                 <div className="h-[420px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#1c2130" opacity={0.8} />
                       <XAxis
                         type="number"
-                        dataKey="cost"
-                        name="Cost/Correct"
-                        unit="$"
+                        dataKey="xValue"
+                        name={dimension === "cost" ? "Cost/Correct" : "P50 Latency"}
+                        unit={dimension === "cost" ? "$" : "ms"}
                         stroke="#94a3b8"
                         fontSize={12}
-                        tickFormatter={(v) => `$${v.toFixed(3)}`}
+                        tickFormatter={(v) => dimension === "cost" ? `$${v.toFixed(3)}` : `${v}ms`}
                       />
                       <YAxis
                         type="number"
@@ -180,6 +219,7 @@ export function ParetoPage() {
                         contentStyle={{ backgroundColor: "#09090f", border: "1px solid #1c2130", borderRadius: "8px", fontSize: "12px" }}
                         formatter={(value: any, name: string) => {
                           if (name === "Cost/Correct") return [`$${Number(value).toFixed(4)}`, name];
+                          if (name === "P50 Latency") return [`${Number(value).toFixed(1)} ms`, name];
                           return [`${Number(value).toFixed(1)}%`, name];
                         }}
                         labelFormatter={(_, payload) => {
@@ -204,7 +244,7 @@ export function ParetoPage() {
                       {/* Knee point glow effect via a larger reference dot */}
                       {kneePoint && (
                         <ReferenceDot
-                          x={kneePoint.cost}
+                          x={kneePoint.xValue}
                           y={kneePoint.acc}
                           r={16}
                           fill="transparent"
@@ -256,12 +296,14 @@ export function ParetoPage() {
                       <span className="text-emerald-400 font-semibold">{kneePoint.acc.toFixed(1)}%</span>
                     </div>
                     <div className="flex justify-between text-[0.8125rem]">
-                      <span className="text-slate-400">Cost/Correct</span>
-                      <span className="text-amber-400 font-semibold">${kneePoint.cost.toFixed(4)}</span>
+                      <span className="text-slate-400">{dimension === "cost" ? "Cost/Correct" : "P50 Latency"}</span>
+                      <span className={`${dimension === "cost" ? "text-amber-400" : "text-blue-400"} font-semibold`}>
+                        {dimension === "cost" ? `$${kneePoint.xValue.toFixed(4)}` : `${kneePoint.xValue.toFixed(1)}ms`}
+                      </span>
                     </div>
                   </div>
                   <p className="text-[0.75rem] text-slate-500 mt-3 leading-relaxed">
-                    This is the point of diminishing returns. Spending more than this yields marginal accuracy gains relative to the exponential cost increase.
+                    This is the point of diminishing returns. Spending more {dimension} than this yields marginal accuracy gains relative to the increase in complexity.
                   </p>
                 </div>
               )}
@@ -283,11 +325,32 @@ export function ParetoPage() {
                           {j.isKnee && <Badge variant="success">Knee</Badge>}
                         </div>
                         <div className="text-[0.75rem] text-slate-400 mt-1">
-                          Acc: {j.acc.toFixed(1)}% · Cost: ${j.cost.toFixed(4)}
+                          Acc: {j.acc.toFixed(1)}% · {dimension === "cost" ? "Cost" : "Lat"}: {dimension === "cost" ? `$${j.xValue.toFixed(4)}` : `${j.xValue.toFixed(1)}ms`}
                         </div>
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* Logic Explained */}
+              <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-xl p-6">
+                <h3 className="text-sm font-medium text-indigo-400 mb-4 flex items-center gap-2">
+                  <Loader2 size={16} /> Understanding the Frontier
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-[0.8125rem] font-medium text-white mb-1">Pareto Optimality</h4>
+                    <p className="text-[0.75rem] text-slate-400 leading-relaxed">
+                      A configuration is "Pareto Optimal" if you cannot improve its accuracy without also increasing its {dimension}. These points form the "Frontier" line.
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="text-[0.8125rem] font-medium text-white mb-1">Diminishing Returns</h4>
+                    <p className="text-[0.75rem] text-slate-400 leading-relaxed">
+                      Points to the right of the Knee Point offer very small accuracy gains for massive increases in {dimension}. The Knee Point suggests where you get the most "bang for your buck."
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

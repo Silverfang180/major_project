@@ -363,8 +363,8 @@ export const api = {
     },
 
     // Comparison & Dashboard
-    async getCompare(datasetId: string): Promise<CompareResponse> {
-        return apiFetch(`${EVAL_BASE}/compare/dataset/${datasetId}`);
+    async getCompare(datasetId: string, dimension: string = "cost"): Promise<CompareResponse> {
+        return apiFetch(`${EVAL_BASE}/compare/dataset/${datasetId}?dimension=${dimension}`);
     },
 
     async compareJobs(jobIds: string[]): Promise<CompareResponse> {

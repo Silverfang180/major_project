@@ -20,7 +20,7 @@ const navSections = [
       { to: "/eval-jobs", icon: FlaskConical, label: "Eval Jobs" },
       { to: "/ab-tests", icon: Split, label: "A/B Tests" },
       { to: "/model-comparisons", icon: Layers, label: "Model Comparisons" },
-      { to: "/pareto", icon: Triangle, label: "Pareto Analysis" },
+      { to: "/pareto", icon: Triangle, label: "Pareto Frontier" },
     ],
   },
   {
