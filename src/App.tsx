@@ -13,6 +13,7 @@ import { ParetoPage } from './app/pages/ParetoPage'
 import { MonitorPage } from './app/pages/MonitorPage'
 import { SettingsPage } from './app/pages/SettingsPage'
 import { LoginPage } from './app/pages/LoginPage'
+import { DashboardPage } from './app/pages/DashboardPage'
 import { AuthProvider } from './app/context/AuthContext'
 
 export default function App() {
@@ -21,7 +22,8 @@ export default function App() {
         <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route element={<AppLayout />}>
-                <Route index element={<PromptsPage />} />
+                <Route index element={<DashboardPage />} />
+                <Route path="prompts" element={<PromptsPage />} />
                 <Route path="versions" element={<VersionsPage />} />
                 <Route path="runs" element={<RunsPage />} />
                 <Route path="datasets" element={<DatasetsPage />} />

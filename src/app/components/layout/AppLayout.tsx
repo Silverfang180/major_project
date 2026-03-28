@@ -22,7 +22,9 @@ export function AppLayout() {
     <div className="min-h-screen bg-slate-900 font-[Inter,system-ui,sans-serif]">
       <Sidebar />
       <div className="ml-[260px] min-h-screen">
-        <Outlet />
+        <main className="page-fade-in min-h-screen">
+          <Outlet />
+        </main>
       </div>
     </div>
   );

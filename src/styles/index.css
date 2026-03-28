@@ -1,3 +1,43 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+
+@layer utilities {
+    .table-row-hover {
+        @apply transition-all duration-200 cursor-pointer hover:bg-slate-800/40 active:bg-slate-800/60;
+    }
+    
+    @keyframes pulse-soft {
+        0%, 100% { 
+            opacity: 1; 
+            transform: scale(1);
+            filter: drop-shadow(0 0 0px rgba(16, 185, 129, 0));
+        }
+        50% { 
+            opacity: 0.7; 
+            transform: scale(1.05);
+            filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.4));
+        }
+    }
+    
+    @keyframes page-fade-in {
+        from { opacity: 0; transform: translateY(4px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .page-fade-in {
+        animation: page-fade-in 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    .animate-pulse-soft {
+        animation: pulse-soft 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    .sidebar-item-accent {
+        @apply relative after:absolute after:left-0 after:top-1/2 after:-translate-y-1/2 after:h-2/3 after:w-[2px] after:bg-indigo-500 after:rounded-r-sm after:opacity-0 after:transition-opacity;
+    }
+    
+    .sidebar-item-accent-active {
+        @apply after:opacity-100;
+    }
+}

@@ -9,9 +9,10 @@ import {
 } from "recharts";
 import {
   Loader2, Trophy, DollarSign, Zap, CheckSquare, Square,
-  ArrowUpDown, Crown, Star
+  ArrowUpDown, Crown, Star, Layers, X, Medal
 } from "lucide-react";
 import { api, type DatasetResponse, type CompareResponse, type EvalJobResponse } from "../../lib/api";
+import { EmptyState } from "../components/shared/EmptyState";
 
 const MODEL_COLORS = [
   "#008cff", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
@@ -152,16 +153,19 @@ export function ModelComparisonsPage() {
 
   // Chart data
   const chartData = useMemo(() => {
-    return comparedJobs.map((j, idx) => ({
-      name: `${j.model || "?"}\n(v${j.version_id})`,
-      shortName: j.model || "?",
-      accuracy: ((j.accuracy || 0) * 100),
-      latency: j.p50_latency_ms || 0,
-      cost: (j.cost_per_correct || 0) * 1000, // Scale to show more detail
-      color: MODEL_COLORS[idx % MODEL_COLORS.length],
-      isKnee: j.is_knee_point,
-      isPareto: j.is_pareto_optimal,
-    }));
+    return comparedJobs.map((j, idx) => {
+      const modelName = j.model && j.model !== "unknown" ? j.model : `v${j.version_id}`;
+      return {
+        name: `${modelName}\n(v${j.version_id})`,
+        shortName: modelName,
+        accuracy: ((j.accuracy || 0) * 100),
+        latency: j.p50_latency_ms || 0,
+        cost: (j.cost_per_correct || 0) * 1000, // Scale to show more detail
+        color: MODEL_COLORS[idx % MODEL_COLORS.length],
+        isKnee: j.is_knee_point,
+        isPareto: j.is_pareto_optimal,
+      };
+    });
   }, [comparedJobs]);
 
   const hasSelection = selectedJobIds.size >= 2;
@@ -187,11 +191,45 @@ export function ModelComparisonsPage() {
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 className="animate-spin text-slate-500" /></div>
         ) : allJobs.length === 0 ? (
-          <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-8 text-center text-slate-500 text-sm">
-            No completed evaluation jobs found for this dataset. Run evaluations first.
+          <div className="py-12">
+            <EmptyState
+              icon={Layers}
+              heading="No Evaluation Data"
+              subtext="No completed evaluation jobs were found for this dataset. Run some evaluation jobs first to see comparative analytics here."
+              ctaLabel="Go to Eval Jobs"
+              ctaAction={() => (window.location.href = "/eval-jobs")}
+            />
           </div>
         ) : (
           <>
+            {/* Selection Overview Chips */}
+            {selectedJobIds.size > 0 && (
+              <div className="flex flex-wrap items-center gap-2 pb-2">
+                <span className="text-[0.75rem] text-slate-500 mr-2 uppercase tracking-wider font-semibold">Selected:</span>
+                {Array.from(selectedJobIds).map((id) => {
+                  const job = allJobs.find((j) => j.job_id === id);
+                  if (!job) return null;
+                  const idx = allJobs.findIndex((aj) => aj.job_id === id);
+                  const modelName = job.model && job.model !== "unknown" ? job.model : `v${job.version_id}`;
+                  return (
+                    <div 
+                      key={id} 
+                      className="flex items-center gap-2 pl-2.5 pr-1.5 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-indigo-400 text-[0.75rem] group animate-in zoom-in-95 duration-200"
+                    >
+                      <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: MODEL_COLORS[idx % MODEL_COLORS.length] }} />
+                      <span className="font-medium">{modelName} <span className="opacity-50 font-normal">v{job.version_id}</span></span>
+                      <button 
+                        onClick={() => toggleJob(id)}
+                        className="p-1 hover:bg-indigo-500/20 rounded-full transition-colors"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Model Selection Checklist */}
             <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-5">
               <div className="flex items-center justify-between mb-4">
@@ -230,7 +268,7 @@ export function ModelComparisonsPage() {
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: MODEL_COLORS[idx % MODEL_COLORS.length] }} />
                           <span className="text-[0.8125rem] text-white truncate font-medium">
-                            {j.model || "Unknown Model"}
+                            {j.model && j.model !== "unknown" ? j.model : `Version ${j.version_id}`}
                           </span>
                         </div>
                         <div className="text-[0.6875rem] text-slate-500 mt-0.5 flex gap-2">
@@ -267,21 +305,21 @@ export function ModelComparisonsPage() {
                   <StatCard
                     title="Most Accurate"
                     value={bestAccuracy ? `${((bestAccuracy.accuracy || 0) * 100).toFixed(1)}%` : "—"}
-                    subtitle={bestAccuracy ? `${bestAccuracy.model} (v${bestAccuracy.version_id})` : undefined}
+                    subtitle={bestAccuracy ? `${bestAccuracy.model || `v${bestAccuracy.version_id}`} (v${bestAccuracy.version_id})` : undefined}
                     icon={<Trophy size={18} />}
                     valueColor="text-emerald-400"
                   />
                   <StatCard
                     title="Most Cost-Efficient"
                     value={bestCost ? `$${(bestCost.cost_per_correct || 0).toFixed(4)}` : "—"}
-                    subtitle={bestCost ? `${bestCost.model} (v${bestCost.version_id})` : undefined}
+                    subtitle={bestCost ? `${bestCost.model || `v${bestCost.version_id}`} (v${bestCost.version_id})` : undefined}
                     icon={<DollarSign size={18} />}
                     valueColor="text-amber-400"
                   />
                   <StatCard
                     title="Lowest Latency"
                     value={bestLatency ? `${bestLatency.p50_latency_ms}ms` : "—"}
-                    subtitle={bestLatency ? `${bestLatency.model} (v${bestLatency.version_id})` : undefined}
+                    subtitle={bestLatency ? `${bestLatency.model || `v${bestLatency.version_id}`} (v${bestLatency.version_id})` : undefined}
                     icon={<Zap size={18} />}
                     valueColor="text-indigo-400"
                   />
@@ -380,7 +418,7 @@ export function ModelComparisonsPage() {
                     </div>
                   </div>
                   <table className="w-full">
-                    <thead>
+                    <thead className="sticky top-0 z-10 bg-slate-900 shadow-sm shadow-slate-950/50">
                       <tr className="border-b border-slate-700/50">
                         {["Rank", "Model", "Version", "Accuracy", "Cost/Correct", "P50 Latency", "Status"].map((h) => (
                           <th key={h} className="text-left text-[0.75rem] text-slate-500 px-5 py-3">{h}</th>
@@ -391,18 +429,22 @@ export function ModelComparisonsPage() {
                       {sortedJobs.map((j, idx) => (
                         <tr
                           key={j.job_id}
-                          className={`border-b border-slate-700/30 transition-colors ${
+                          className={`border-b border-slate-700/30 table-row-hover ${
                             j.is_knee_point
                               ? "bg-emerald-500/5 hover:bg-emerald-500/10"
-                              : "hover:bg-slate-800/50"
+                              : ""
                           }`}
                         >
                           <td className="px-5 py-3">
                             <div className="flex items-center gap-2">
-                              {idx === 0 && sortKey === "accuracy" ? (
-                                <Crown size={14} className="text-amber-400" />
+                              {idx === 0 ? (
+                                <Medal size={16} className="text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.4)]" />
+                              ) : idx === 1 ? (
+                                <Medal size={16} className="text-slate-300 drop-shadow-[0_0_8px_rgba(203,213,225,0.4)]" />
+                              ) : idx === 2 ? (
+                                <Medal size={16} className="text-amber-700 drop-shadow-[0_0_8px_rgba(180,83,9,0.4)]" />
                               ) : (
-                                <span className="text-[0.8125rem] text-slate-400 w-4 text-center">{idx + 1}</span>
+                                <span className="text-[0.8125rem] text-slate-500 w-4 text-center">{idx + 1}</span>
                               )}
                             </div>
                           </td>
@@ -413,7 +455,9 @@ export function ModelComparisonsPage() {
                                   allJobs.findIndex((aj) => aj.job_id === j.job_id) % MODEL_COLORS.length
                                 ]
                               }} />
-                              <span className="text-[0.8125rem] text-white font-medium">{j.model || "Unknown"}</span>
+                              <span className="text-[0.8125rem] text-white font-medium">
+                                {j.model && j.model !== "unknown" ? j.model : `Version ${j.version_id}`}
+                              </span>
                             </div>
                           </td>
                           <td className="px-5 py-3">

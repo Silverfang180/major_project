@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { Topbar } from "../components/layout/Topbar";
 import { Badge } from "../components/shared/Badge";
-import { GitBranch, Loader2, Trash2 } from "lucide-react";
+import { GitBranch, Loader2, Trash2, Layers } from "lucide-react";
 import { api, type PromptResponse, type VersionResponse } from "../../lib/api";
 import { toast } from "sonner";
+import { EmptyState } from "../components/shared/EmptyState";
 
 interface VersionWithPrompt extends VersionResponse {
   promptKey: string;
@@ -96,9 +97,19 @@ export function VersionsPage() {
               </thead>
               <tbody>
                 {versions.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500 text-sm">No versions found.</td></tr>
+                  <tr>
+                    <td colSpan={7} className="px-4 py-12">
+                      <EmptyState
+                        icon={Layers}
+                        heading="No Prompt Versions"
+                        subtext="Prompt versions track changes over time. Create a prompt and add text to see versions appear here."
+                        ctaLabel="Go to Prompts"
+                        ctaAction={() => (window.location.href = "/")}
+                      />
+                    </td>
+                  </tr>
                 ) : versions.map((v) => (
-                  <tr key={v.version_id} className="border-b border-slate-700/30 hover:bg-slate-800/50 transition-colors">
+                  <tr key={v.version_id} className="border-b border-slate-700/30 table-row-hover">
                     <td className="px-4 py-3 text-[0.8125rem] text-slate-300 font-mono">{v.version_id}</td>
                     <td className="px-4 py-3 text-[0.8125rem] text-indigo-400">{v.promptKey}</td>
                     <td className="px-4 py-3 text-[0.8125rem] text-slate-300">#{v.ordinal}</td>

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Topbar } from "../components/layout/Topbar";
 import { Badge } from "../components/shared/Badge";
 import { ChartCard } from "../components/shared/ChartCard";
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceDot } from "recharts";
+import { ComposedChart, Scatter, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceDot } from "recharts";
 import { Loader2, Target, TrendingUp, Zap } from "lucide-react";
 import { api, type DatasetResponse } from "../../lib/api";
 
@@ -98,7 +98,9 @@ export function ParetoPage() {
 
   const scatterData = getScatterData();
   const kneePoint = scatterData.find((d) => d.isKnee);
-  const paretoPoints = scatterData.filter((d) => d.isPareto);
+  const paretoPoints = scatterData
+    .filter((d) => d.isPareto)
+    .sort((a, b) => a.xValue - b.xValue);
   const groups = getGroups();
 
   return (
@@ -194,13 +196,12 @@ export function ParetoPage() {
              >
                 <div className="h-[420px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                    <ComposedChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#1c2130" opacity={0.8} />
                       <XAxis
                         type="number"
                         dataKey="xValue"
                         name={dimension === "cost" ? "Cost/Correct" : "P50 Latency"}
-                        unit={dimension === "cost" ? "$" : "ms"}
                         stroke="#94a3b8"
                         fontSize={12}
                         tickFormatter={(v) => dimension === "cost" ? `$${v.toFixed(3)}` : `${v}ms`}
@@ -230,6 +231,29 @@ export function ParetoPage() {
                           return "";
                         }}
                       />
+                      {/* Dominated Zone Shading */}
+                      <Area
+                        type="stepAfter"
+                        data={paretoPoints}
+                        dataKey="acc"
+                        stroke="none"
+                        fill="url(#dominatedGradient)"
+                        fillOpacity={0.15}
+                        isAnimationActive={false}
+                      />
+                      
+                      {/* Frontier Line */}
+                      <Line
+                        type="stepAfter"
+                        data={paretoPoints}
+                        dataKey="acc"
+                        stroke="#10b981"
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={false}
+                        isAnimationActive={true}
+                      />
+
                       <Scatter name="Configurations" data={scatterData}>
                         {scatterData.map((entry, index) => (
                           <Cell
@@ -238,22 +262,32 @@ export function ParetoPage() {
                             r={entry.isKnee ? 10 : entry.isPareto ? 7 : 5}
                             stroke={entry.isKnee ? "#10b981" : "transparent"}
                             strokeWidth={entry.isKnee ? 3 : 0}
+                            className={entry.isKnee ? "animate-pulse-soft" : ""}
                           />
                         ))}
                       </Scatter>
-                      {/* Knee point glow effect via a larger reference dot */}
+
+                      <defs>
+                        <linearGradient id="dominatedGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+
+                      {/* Knee point pulse effect */}
                       {kneePoint && (
                         <ReferenceDot
                           x={kneePoint.xValue}
                           y={kneePoint.acc}
-                          r={16}
+                          r={18}
                           fill="transparent"
                           stroke="#10b981"
                           strokeWidth={2}
-                          strokeDasharray="4 2"
+                          className="animate-pulse-soft"
+                          strokeDasharray="4 4"
                         />
                       )}
-                    </ScatterChart>
+                    </ComposedChart>
                   </ResponsiveContainer>
                 </div>
               </ChartCard>

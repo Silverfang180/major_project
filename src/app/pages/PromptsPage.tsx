@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { api, getIdentity, type PromptResponse, type VersionResponse, type RunResponse } from "../../lib/api";
+import { EmptyState } from "../components/shared/EmptyState";
 
 // ── Model pricing (mirrors the GUI) ──────────────────────────────────────────
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
@@ -656,24 +657,36 @@ export function PromptsPage() {
         ) : (
           <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl overflow-hidden">
             <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-700/50">
-                  <th className="text-left text-[0.75rem] text-slate-500 px-4 py-3">Prompt Key</th>
-                  <th className="text-left text-[0.75rem] text-slate-500 px-4 py-3">Title</th>
-                  <th className="text-left text-[0.75rem] text-slate-500 px-4 py-3">Status</th>
-                  <th className="text-left text-[0.75rem] text-slate-500 px-4 py-3">Updated</th>
-                  <th className="text-right text-[0.75rem] text-slate-500 px-4 py-3"></th>
+              <thead className="sticky top-0 z-10 bg-slate-900 shadow-sm shadow-slate-950/50">
+                <tr className="border-b border-slate-700/50 text-slate-500 uppercase text-[0.6875rem] font-semibold tracking-wider">
+                  <th className="text-left px-4 py-3">Prompt Key</th>
+                  <th className="text-left px-4 py-3">Title</th>
+                  <th className="text-left px-4 py-3">Status</th>
+                  <th className="text-left px-4 py-3">Updated</th>
+                  <th className="text-right px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={5} className="px-4 py-10 text-center text-slate-500 text-sm">
-                    No prompts yet. Click <strong className="text-indigo-400">New Prompt</strong> to create your first.
-                  </td></tr>
+                  <tr>
+                    <td colSpan={5} className="px-4 py-16">
+                      <EmptyState
+                        icon={Zap}
+                        heading={search ? "No Matches Found" : "No Prompts Yet"}
+                        subtext={
+                          search
+                            ? `We couldn't find any prompts matching "${search}". Try a different keyword.`
+                            : "Chronicle helps you version and evaluate prompts. Create your first prompt to get started."
+                        }
+                        ctaLabel={search ? "Clear Search" : "Create Prompt"}
+                        ctaAction={search ? () => setSearch("") : () => setCreateOpen(true)}
+                      />
+                    </td>
+                  </tr>
                 ) : filtered.map(p => (
                   <tr
                     key={p.prompt_id}
-                    className="border-b border-slate-700/30 hover:bg-slate-800/50 cursor-pointer transition-colors"
+                    className="border-b border-slate-700/30 table-row-hover"
                     onClick={() => openPrompt(p)}
                   >
                     <td className="px-4 py-3">

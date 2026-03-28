@@ -3,8 +3,9 @@ import { useNavigate } from "react-router";
 import { Topbar } from "../components/layout/Topbar";
 import { Badge } from "../components/shared/Badge";
 import { Modal } from "../components/shared/Modal";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, FlaskConical } from "lucide-react";
 import { api, type EvalJobResponse, type PromptResponse, type DatasetResponse, type VersionResponse } from "../../lib/api";
+import { EmptyState } from "../components/shared/EmptyState";
 
 const statusVariant: Record<string, "neutral" | "pulse" | "success" | "error"> = {
   pending: "neutral",
@@ -110,18 +111,28 @@ export function EvalJobsPage() {
         ) : (
           <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl overflow-hidden">
             <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-700/50">
-                  {["Job ID", "Prompt", "Dataset", "Evaluators", "Status", "Accuracy", "Cost", "Created"].map((h) => (
-                    <th key={h} className="text-left text-[0.75rem] text-slate-500 px-4 py-3">{h}</th>
+              <thead className="sticky top-0 z-10 bg-slate-900 shadow-sm shadow-slate-950/50">
+                <tr className="border-b border-slate-700/50 text-slate-500 uppercase text-[0.6875rem] font-semibold tracking-wider">
+                  {["Job ID", "Prompt", "Version", "Dataset", "Status", "Accuracy", "Created"].map((h) => (
+                    <th key={h} className="text-left px-4 py-3">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {jobs.length === 0 ? (
-                  <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500 text-sm">No eval jobs yet.</td></tr>
+                  <tr>
+                    <td colSpan={8} className="px-4 py-12">
+                      <EmptyState
+                        icon={FlaskConical}
+                        heading="No Evaluation Jobs"
+                        subtext="You haven't run any evaluations yet. Create a job to compare prompt versions across your datasets."
+                        ctaLabel="Create Eval Job"
+                        ctaAction={openCreateModal}
+                      />
+                    </td>
+                  </tr>
                 ) : jobs.map((job) => (
-                  <tr key={job.job_id} className="border-b border-slate-700/30 hover:bg-slate-800/50 cursor-pointer transition-colors" onClick={() => job.status === "completed" && navigate(`/eval-analytics/${job.job_id}`)}>
+                  <tr key={job.job_id} className="border-b border-slate-700/30 table-row-hover" onClick={() => job.status === "completed" && navigate(`/eval-analytics/${job.job_id}`)}>
                     <td className="px-4 py-3 text-[0.8125rem] text-slate-300 font-mono">{job.job_id.slice(0, 8)}</td>
                     <td className="px-4 py-3 text-[0.8125rem] text-indigo-400">{job.prompt_key || job.prompt_id.slice(0, 8)}</td>
                     <td className="px-4 py-3 text-[0.8125rem] text-slate-300">{job.dataset_name || job.dataset_id.slice(0, 8)}</td>

@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { Topbar } from "../components/layout/Topbar";
 import { Badge } from "../components/shared/Badge";
 import { Modal } from "../components/shared/Modal";
-import { Plus, Trash2, Database, Loader2 } from "lucide-react";
+import { Plus, Trash2, Database, Loader2, FolderOpen, TableProperties } from "lucide-react";
 import { api, type DatasetResponse, type ExampleResponse } from "../../lib/api";
+import { EmptyState } from "../components/shared/EmptyState";
 
 export function DatasetsPage() {
   const [datasets, setDatasets] = useState<DatasetResponse[]>([]);
@@ -113,7 +114,12 @@ export function DatasetsPage() {
                   <Database size={14} /> {ds.name}
                 </button>
               ))}
-              {datasets.length === 0 && <p className="text-slate-600 text-xs px-3">No datasets yet</p>}
+              {datasets.length === 0 && (
+                <div className="py-8 px-2 text-center">
+                  <Database size={24} className="mx-auto text-slate-700 mb-2" />
+                  <p className="text-slate-500 text-[0.75rem]">No datasets created yet</p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -142,18 +148,28 @@ export function DatasetsPage() {
               ) : (
                 <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl overflow-hidden">
                   <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-slate-700/50">
-                        <th className="text-left text-[0.75rem] text-slate-500 px-4 py-3">Example ID</th>
-                        <th className="text-left text-[0.75rem] text-slate-500 px-4 py-3">Input Variables</th>
-                        <th className="text-left text-[0.75rem] text-slate-500 px-4 py-3">Expected Output</th>
+                    <thead className="sticky top-0 z-10 bg-slate-900 shadow-sm shadow-slate-950/50">
+                      <tr className="border-b border-slate-700/50 text-slate-500 uppercase text-[0.6875rem] font-semibold tracking-wider">
+                        <th className="text-left px-4 py-3">Example ID</th>
+                        <th className="text-left px-4 py-3">Input Variables</th>
+                        <th className="text-left px-4 py-3">Expected Output</th>
                       </tr>
                     </thead>
                     <tbody>
                       {examples.length === 0 ? (
-                        <tr><td colSpan={3} className="px-4 py-8 text-center text-slate-500 text-sm">No examples. Add one to get started.</td></tr>
+                        <tr>
+                          <td colSpan={3} className="px-4 py-12">
+                            <EmptyState
+                              icon={TableProperties}
+                              heading="Empty Dataset"
+                              subtext="This dataset contains no examples. Add your first example to start running evaluations."
+                              ctaLabel="Add Example"
+                              ctaAction={() => setAddExampleOpen(true)}
+                            />
+                          </td>
+                        </tr>
                       ) : examples.map((ex) => (
-                        <tr key={ex.example_id} className="border-b border-slate-700/30 hover:bg-slate-800/50 transition-colors">
+                        <tr key={ex.example_id} className="border-b border-slate-700/30 table-row-hover">
                           <td className="px-4 py-3 text-[0.8125rem] text-slate-300 font-mono">{String(ex.example_id)}</td>
                           <td className="px-4 py-3">
                             <pre className="text-[0.75rem] text-indigo-300 bg-slate-800 rounded px-2 py-1 max-w-xs truncate">{JSON.stringify(ex.input_vars)}</pre>
@@ -167,7 +183,15 @@ export function DatasetsPage() {
               )}
             </>
           ) : (
-            <div className="flex items-center justify-center h-full text-slate-500 text-sm">Select a dataset from the sidebar</div>
+            <div className="flex h-full items-center justify-center">
+              <EmptyState
+                icon={FolderOpen}
+                heading="No Dataset Selected"
+                subtext="Choose a dataset from the sidebar to view its examples or create a new one to get started."
+                ctaLabel="Create Dataset"
+                ctaAction={() => setCreateDatasetOpen(true)}
+              />
+            </div>
           )}
         </div>
       </div>
