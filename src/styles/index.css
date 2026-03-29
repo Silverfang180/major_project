@@ -4,19 +4,19 @@
 
 @layer utilities {
     .table-row-hover {
-        @apply transition-all duration-200 cursor-pointer hover:bg-slate-800/40 active:bg-slate-800/60;
+        @apply transition-all duration-300 cursor-pointer hover:bg-muted/50 hover:text-foreground active:bg-muted/80;
     }
     
     @keyframes pulse-soft {
         0%, 100% { 
             opacity: 1; 
             transform: scale(1);
-            filter: drop-shadow(0 0 0px rgba(16, 185, 129, 0));
+            filter: drop-shadow(0 0 0px var(--primary));
         }
         50% { 
             opacity: 0.7; 
             transform: scale(1.05);
-            filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.4));
+            filter: drop-shadow(0 0 8px var(--primary));
         }
     }
     
@@ -34,7 +34,7 @@
     }
 
     .sidebar-item-accent {
-        @apply relative after:absolute after:left-0 after:top-1/2 after:-translate-y-1/2 after:h-2/3 after:w-[2px] after:bg-indigo-500 after:rounded-r-sm after:opacity-0 after:transition-opacity;
+        @apply relative after:absolute after:left-0 after:top-1/2 after:-translate-y-1/2 after:h-2/3 after:w-[3px] after:bg-primary after:rounded-r-full after:opacity-0 after:transition-opacity after:shadow-[0_0_8px_var(--primary)];
     }
     
     .sidebar-item-accent-active {

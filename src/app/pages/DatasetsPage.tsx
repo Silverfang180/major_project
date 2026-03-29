@@ -100,24 +100,27 @@ export function DatasetsPage() {
     <div>
       <Topbar title="Datasets" subtitle="Manage evaluation datasets and examples" />
       <div className="flex h-[calc(100vh-57px)]">
-        <div className="w-64 border-r border-slate-800 p-4 space-y-2 overflow-y-auto shrink-0">
-          <button onClick={() => setCreateDatasetOpen(true)} className="w-full flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-[0.8125rem] rounded-lg transition-colors">
+        <div className="w-64 border-r border-border p-4 space-y-2 overflow-y-auto shrink-0 bg-muted/10">
+          <button 
+            onClick={() => setCreateDatasetOpen(true)} 
+            className="w-full flex items-center gap-2 px-3 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-[0.8125rem] font-bold rounded-xl transition-all shadow-md active:scale-95"
+          >
             <Plus size={14} /> New Dataset
           </button>
           {loading ? (
-            <div className="flex justify-center py-4"><Loader2 size={16} className="animate-spin text-slate-500" /></div>
+            <div className="flex justify-center py-6 text-muted-foreground animate-pulse"><Loader2 size={16} className="animate-spin text-primary" /></div>
           ) : (
             <div className="space-y-1 mt-4">
               {datasets.map((ds) => (
                 <button key={ds.dataset_id} onClick={() => selectDataset(ds.dataset_id)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-[0.8125rem] transition-colors flex items-center gap-2 ${selected === ds.dataset_id ? "bg-indigo-600/15 text-indigo-400" : "text-slate-400 hover:bg-slate-800"}`}>
-                  <Database size={14} /> {ds.name}
+                  className={`w-full text-left px-3 py-2.5 rounded-xl text-[0.8125rem] transition-all flex items-center gap-2 group ${selected === ds.dataset_id ? "bg-primary/10 text-primary font-bold shadow-sm" : "text-muted-foreground hover:bg-muted"}`}>
+                  <Database size={14} className={selected === ds.dataset_id ? "text-primary" : "text-muted-foreground/60 transition-colors group-hover:text-primary"} /> {ds.name}
                 </button>
               ))}
               {datasets.length === 0 && (
-                <div className="py-8 px-2 text-center">
-                  <Database size={24} className="mx-auto text-slate-700 mb-2" />
-                  <p className="text-slate-500 text-[0.75rem]">No datasets created yet</p>
+                <div className="py-8 px-2 text-center opacity-40">
+                  <Database size={24} className="mx-auto text-muted-foreground mb-2" />
+                  <p className="text-muted-foreground text-[0.75rem]">No datasets created yet</p>
                 </div>
               )}
             </div>
@@ -126,33 +129,33 @@ export function DatasetsPage() {
         <div className="flex-1 p-6 overflow-y-auto">
           {dataset ? (
             <>
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-between mb-8 pb-6 border-b border-border">
                 <div>
-                  <h2 className="text-white text-[1.125rem]">{dataset.name}</h2>
-                  <div className="flex items-center gap-3 mt-1">
+                  <h2 className="text-foreground text-[1.25rem] font-bold tracking-tight">{dataset.name}</h2>
+                  <div className="flex items-center gap-3 mt-1.5">
                     <Badge variant="info">{dataset.task_type}</Badge>
-                    <span className="text-[0.75rem] text-slate-500">{examples.length} examples</span>
+                    <span className="text-[0.75rem] text-muted-foreground font-medium">{examples.length} examples tracked</span>
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => setAddExampleOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[0.8125rem] rounded-lg transition-colors">
+                  <button onClick={() => setAddExampleOpen(true)} className="flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-[0.8125rem] font-bold rounded-xl transition-all shadow-md active:scale-95">
                     <Plus size={14} /> Add Example
                   </button>
-                  <button onClick={handleDeleteDataset} className="flex items-center gap-1.5 px-3 py-1.5 border border-rose-500/30 text-rose-400 text-[0.8125rem] rounded-lg hover:bg-rose-500/10 transition-colors">
-                    <Trash2 size={14} /> Delete
+                  <button onClick={handleDeleteDataset} className="flex items-center gap-1.5 px-4 py-2 border border-rose-500/30 text-rose-500 hover:text-white text-[0.8125rem] font-bold rounded-xl hover:bg-rose-500 transition-all active:scale-95 shadow-sm shadow-rose-500/10">
+                    <Trash2 size={14} /> Delete Dataset
                   </button>
                 </div>
               </div>
               {examplesLoading ? (
-                <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-slate-500" /></div>
+                <div className="flex justify-center py-12 text-muted-foreground animate-pulse"><Loader2 size={24} className="animate-spin text-primary" /> Loading examples...</div>
               ) : (
-                <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl overflow-hidden">
+                <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
                   <table className="w-full">
-                    <thead className="sticky top-0 z-10 bg-slate-900 shadow-sm shadow-slate-950/50">
-                      <tr className="border-b border-slate-700/50 text-slate-500 uppercase text-[0.6875rem] font-semibold tracking-wider">
-                        <th className="text-left px-4 py-3">Example ID</th>
-                        <th className="text-left px-4 py-3">Input Variables</th>
-                        <th className="text-left px-4 py-3">Expected Output</th>
+                    <thead className="sticky top-0 z-10 bg-muted/50">
+                      <tr className="border-b border-border text-muted-foreground uppercase text-[0.6875rem] font-bold tracking-wider">
+                        <th className="text-left px-4 py-4">Example ID</th>
+                        <th className="text-left px-4 py-4">Input Variables</th>
+                        <th className="text-left px-4 py-4">Expected Output</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -169,12 +172,12 @@ export function DatasetsPage() {
                           </td>
                         </tr>
                       ) : examples.map((ex) => (
-                        <tr key={ex.example_id} className="border-b border-slate-700/30 table-row-hover">
-                          <td className="px-4 py-3 text-[0.8125rem] text-slate-300 font-mono">{String(ex.example_id)}</td>
+                        <tr key={ex.example_id} className="border-b border-border/10 table-row-hover transition-colors">
+                          <td className="px-4 py-3 text-[0.8125rem] text-muted-foreground font-mono">{String(ex.example_id).slice(0, 8)}</td>
                           <td className="px-4 py-3">
-                            <pre className="text-[0.75rem] text-indigo-300 bg-slate-800 rounded px-2 py-1 max-w-xs truncate">{JSON.stringify(ex.input_vars)}</pre>
+                            <pre className="text-[0.7rem] text-primary font-mono bg-muted/50 border border-border rounded-lg px-3 py-1.5 max-w-sm overflow-x-auto shadow-inner">{JSON.stringify(ex.input_vars, null, 2)}</pre>
                           </td>
-                          <td className="px-4 py-3 text-[0.8125rem] text-slate-300 max-w-xs truncate">{ex.expected_output}</td>
+                          <td className="px-4 py-3 text-[0.8125rem] text-foreground font-medium max-w-sm truncate">{ex.expected_output}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -196,23 +199,24 @@ export function DatasetsPage() {
         </div>
       </div>
       {/* Create Dataset Modal */}
+      {/* Create Dataset Modal */}
       <Modal open={createDatasetOpen} onClose={() => setCreateDatasetOpen(false)} title="Create Dataset"
         footer={<>
-          <button onClick={() => setCreateDatasetOpen(false)} className="px-4 py-2 text-[0.8125rem] text-slate-400 border border-slate-600 rounded-lg hover:bg-slate-800">Cancel</button>
-          <button onClick={handleCreateDataset} className="px-4 py-2 text-[0.8125rem] bg-indigo-600 text-white rounded-lg hover:bg-indigo-500">Create</button>
+          <button onClick={() => setCreateDatasetOpen(false)} className="px-4 py-2 text-[0.8125rem] text-muted-foreground bg-muted border border-border rounded-xl hover:bg-muted-hover transition-all font-bold">Cancel</button>
+          <button onClick={handleCreateDataset} className="px-6 py-2 text-[0.8125rem] bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all font-bold">Create Dataset</button>
         </>}>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-[0.8125rem] text-slate-400 mb-1.5">Name</label>
-            <input value={dsName} onChange={(e) => setDsName(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-[0.8125rem] text-white outline-none focus:border-indigo-500" placeholder="e.g. QA Pairs v2" />
+        <div className="space-y-5">
+          <div className="space-y-1.5">
+            <label className="block text-[0.7rem] text-muted-foreground uppercase font-bold tracking-wider">Name</label>
+            <input value={dsName} onChange={(e) => setDsName(e.target.value)} className="w-full bg-background border border-border rounded-xl px-4 py-3 text-[0.8125rem] text-foreground outline-none focus:ring-2 focus:ring-primary/10 transition-all shadow-sm" placeholder="e.g. QA Pairs v2" />
           </div>
-          <div>
-            <label className="block text-[0.8125rem] text-slate-400 mb-1.5">Description</label>
-            <input value={dsDesc} onChange={(e) => setDsDesc(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-[0.8125rem] text-white outline-none focus:border-indigo-500" placeholder="Optional description" />
+          <div className="space-y-1.5">
+            <label className="block text-[0.7rem] text-muted-foreground uppercase font-bold tracking-wider">Description</label>
+            <input value={dsDesc} onChange={(e) => setDsDesc(e.target.value)} className="w-full bg-background border border-border rounded-xl px-4 py-3 text-[0.8125rem] text-foreground outline-none focus:ring-2 focus:ring-primary/10 transition-all shadow-sm" placeholder="Optional description" />
           </div>
-          <div>
-            <label className="block text-[0.8125rem] text-slate-400 mb-1.5">Task Type</label>
-            <select value={dsTaskType} onChange={(e) => setDsTaskType(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-[0.8125rem] text-white outline-none">
+          <div className="space-y-1.5">
+            <label className="block text-[0.7rem] text-muted-foreground uppercase font-bold tracking-wider">Task Type</label>
+            <select value={dsTaskType} onChange={(e) => setDsTaskType(e.target.value)} className="w-full bg-background border border-border rounded-xl px-4 py-3 text-[0.8125rem] text-foreground outline-none focus:ring-2 focus:ring-primary/10 transition-all shadow-sm">
               <option value="classification">Classification</option>
               <option value="qa">Question Answering</option>
               <option value="generation">Generation</option>
@@ -223,17 +227,17 @@ export function DatasetsPage() {
       {/* Add Example Modal */}
       <Modal open={addExampleOpen} onClose={() => setAddExampleOpen(false)} title="Add Example"
         footer={<>
-          <button onClick={() => setAddExampleOpen(false)} className="px-4 py-2 text-[0.8125rem] text-slate-400 border border-slate-600 rounded-lg hover:bg-slate-800">Cancel</button>
-          <button onClick={handleAddExample} className="px-4 py-2 text-[0.8125rem] bg-indigo-600 text-white rounded-lg hover:bg-indigo-500">Save</button>
+          <button onClick={() => setAddExampleOpen(false)} className="px-4 py-2 text-[0.8125rem] text-muted-foreground bg-muted border border-border rounded-xl hover:bg-muted-hover transition-all font-bold">Cancel</button>
+          <button onClick={handleAddExample} className="px-6 py-2 text-[0.8125rem] bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all font-bold">Save Example</button>
         </>}>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-[0.8125rem] text-slate-400 mb-1.5">Input Variables (JSON)</label>
-            <textarea value={exInputJson} onChange={(e) => setExInputJson(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-[0.8125rem] text-emerald-400 font-mono outline-none focus:border-indigo-500 h-32 resize-none" placeholder='{"key": "value"}' />
+        <div className="space-y-5">
+          <div className="space-y-1.5">
+            <label className="block text-[0.7rem] text-muted-foreground uppercase font-bold tracking-wider">Input Variables (JSON)</label>
+            <textarea value={exInputJson} onChange={(e) => setExInputJson(e.target.value)} className="w-full bg-background border border-border rounded-xl px-4 py-3 text-[0.8125rem] text-primary font-mono outline-none focus:ring-2 focus:ring-primary/10 transition-all h-32 resize-none shadow-sm shadow-inner" placeholder='{"key": "value"}' />
           </div>
-          <div>
-            <label className="block text-[0.8125rem] text-slate-400 mb-1.5">Expected Output</label>
-            <textarea value={exExpected} onChange={(e) => setExExpected(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-[0.8125rem] text-white outline-none focus:border-indigo-500 h-20 resize-none" placeholder="Expected model output..." />
+          <div className="space-y-1.5">
+            <label className="block text-[0.7rem] text-muted-foreground uppercase font-bold tracking-wider">Expected Output</label>
+            <textarea value={exExpected} onChange={(e) => setExExpected(e.target.value)} className="w-full bg-background border border-border rounded-xl px-4 py-3 text-[0.8125rem] text-foreground outline-none focus:ring-2 focus:ring-primary/10 transition-all h-20 resize-none shadow-sm shadow-inner" placeholder="Expected model output..." />
           </div>
         </div>
       </Modal>

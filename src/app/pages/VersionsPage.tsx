@@ -77,21 +77,21 @@ export function VersionsPage() {
     <div>
       <Topbar title="Versions" subtitle="All prompt versions across the system" />
       <div className="p-6 space-y-6">
-        <div className="flex items-center gap-2 text-slate-400 text-[0.8125rem]">
-          <GitBranch size={16} />
-          <span>{versions.length} versions across {promptCount} prompts</span>
+        <div className="flex items-center gap-3 px-4 py-2 bg-muted/40 border border-border rounded-xl text-muted-foreground text-[0.8125rem] w-fit shadow-sm">
+          <GitBranch size={16} className="text-primary" />
+          <span className="font-bold tracking-tight">{versions.length} <span className="opacity-60 font-medium">versions across</span> {promptCount} <span className="opacity-60 font-medium">prompts</span></span>
         </div>
         {loading ? (
           <div className="flex items-center justify-center py-12 gap-2 text-slate-400"><Loader2 size={20} className="animate-spin" /> Loading versions...</div>
         ) : error ? (
-          <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-6 text-rose-400 text-sm">{error}</div>
+          <div className="bg-rose-500/5 border border-rose-500/20 rounded-2xl p-6 text-rose-600 text-[0.8125rem] font-medium shadow-sm">{error}</div>
         ) : (
-          <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-700/50">
-                  {["Version ID", "Prompt", "Ordinal", "Settings", "Status", "Created", "Actions"].map((h) => (
-                    <th key={h} className="text-left text-[0.75rem] text-slate-500 px-4 py-3">{h}</th>
+          <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+            <table className="w-full border-collapse">
+              <thead className="bg-muted/30">
+                <tr className="border-b border-border">
+                  {["Version ID", "Prompt Key", "Ordinal", "Model Config", "Lifecycle", "Commited On", "Actions"].map((h) => (
+                    <th key={h} className="text-left text-[0.6875rem] text-muted-foreground uppercase font-black tracking-widest px-6 py-4">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -108,41 +108,49 @@ export function VersionsPage() {
                       />
                     </td>
                   </tr>
-                ) : versions.map((v) => (
-                  <tr key={v.version_id} className="border-b border-slate-700/30 table-row-hover">
-                    <td className="px-4 py-3 text-[0.8125rem] text-slate-300 font-mono">{v.version_id}</td>
-                    <td className="px-4 py-3 text-[0.8125rem] text-indigo-400">{v.promptKey}</td>
-                    <td className="px-4 py-3 text-[0.8125rem] text-slate-300">#{v.ordinal}</td>
-                    <td className="px-4 py-3">
-                      {v.model_settings && Object.keys(v.model_settings).length > 0 ? (
-                        <code className="text-[0.6875rem] text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded">JSON</code>
-                      ) : (
-                        <span className="text-slate-600 text-[0.75rem]">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {v.productionVersionId === v.version_id
-                        ? <Badge variant="success">production</Badge>
-                        : v.is_latest
-                          ? <Badge variant="info">latest</Badge>
-                          : <Badge variant="neutral">archived</Badge>}
-                    </td>
-                    <td className="px-4 py-3 text-[0.8125rem] text-slate-500">{new Date(v.created_at).toLocaleDateString()}</td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleDeleteVersion(v.version_id, v.productionVersionId === v.version_id)}
-                        className={`p-1.5 rounded-lg transition-colors ${
-                          v.productionVersionId === v.version_id
-                            ? "text-slate-600 cursor-not-allowed"
-                            : "text-slate-500 hover:text-rose-400 hover:bg-rose-500/10"
-                        }`}
-                        title={v.productionVersionId === v.version_id ? "Cannot delete production version" : "Delete version"}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                ) : (
+                  versions.map((v) => (
+                    <tr key={v.version_id} className="border-b border-border/50 table-row-hover transition-colors">
+                      <td className="px-6 py-4 text-[0.8125rem] text-foreground font-bold font-mono">#{v.version_id}</td>
+                      <td className="px-6 py-4 text-[0.8125rem] font-bold text-primary">{v.promptKey}</td>
+                      <td className="px-6 py-4 text-[0.8125rem] text-muted-foreground font-medium">#{v.ordinal}</td>
+                      <td className="px-6 py-4">
+                        {v.model_settings && Object.keys(v.model_settings).length > 0 ? (
+                          <div className="inline-flex items-center gap-1.5 bg-amber-500/5 border border-amber-500/20 px-2 py-0.5 rounded-lg">
+                            <code className="text-[0.6875rem] text-amber-600 font-bold uppercase tracking-tight">Configuration</code>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground/30 text-[0.6875rem] uppercase font-black tracking-widest">Default</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center">
+                          {v.productionVersionId === v.version_id
+                            ? <Badge variant="success" className="font-black uppercase tracking-tighter">production</Badge>
+                            : v.is_latest
+                              ? <Badge variant="info" className="font-black uppercase tracking-tighter">current</Badge>
+                              : <Badge variant="neutral" className="opacity-50 font-black uppercase tracking-tighter">legacy</Badge>}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-[0.8125rem] text-muted-foreground font-medium">
+                        {new Date(v.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </td>
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={() => handleDeleteVersion(v.version_id, v.productionVersionId === v.version_id)}
+                          className={`p-2 rounded-xl transition-all ${
+                            v.productionVersionId === v.version_id
+                              ? "text-muted-foreground/20 cursor-not-allowed"
+                              : "text-muted-foreground hover:text-rose-500 hover:bg-rose-500/5 active:scale-90"
+                          }`}
+                          title={v.productionVersionId === v.version_id ? "Cannot delete production version" : "Delete version"}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

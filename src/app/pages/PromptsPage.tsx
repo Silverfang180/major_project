@@ -46,18 +46,18 @@ function TokenBar({ text, modelJson }: { text: string; modelJson: string }) {
 
   return (
     <div className="mt-2 space-y-1.5">
-      <p className="text-[0.75rem] font-mono text-slate-500">
+      <p className="text-[0.75rem] font-mono text-muted-foreground">
         ~{tokens} tokens
-        {cost !== null && <> · Est. <span className="text-amber-400">${cost.toFixed(6)}</span></>}
-        {model && <> · <span className="text-indigo-400">{model}</span></>}
+        {cost !== null && <> · Est. <span className="text-amber-500 font-medium">${cost.toFixed(6)}</span></>}
+        {model && <> · <span className="text-primary font-medium">{model}</span></>}
         {!model && " · Model not set"}
       </p>
       {model && (
         <div className="flex items-center gap-2">
-          <div className="flex-1 h-1 bg-slate-800 rounded-full overflow-hidden">
+          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden shadow-inner">
             <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
           </div>
-          <span className="text-[0.6875rem] font-mono text-slate-600">
+          <span className="text-[0.6875rem] font-mono text-muted-foreground/60">
             {tokens.toLocaleString()} / {maxCtx.toLocaleString()}
           </span>
         </div>
@@ -83,18 +83,18 @@ function VersionCard({
   return (
     <div className={`relative pl-8 pb-6 ${isProduction ? "opacity-100" : "opacity-80"}`}>
       {/* Timeline line */}
-      <div className="absolute left-[11px] top-5 bottom-0 w-px bg-slate-700/50" />
+      <div className="absolute left-[11px] top-5 bottom-0 w-px bg-border/50" />
       {/* Timeline dot */}
       <div className={`absolute left-0 top-[18px] w-5 h-5 rounded-full border-2 flex items-center justify-center
-        ${isProduction ? "border-emerald-500 bg-emerald-500/20" : "border-slate-600 bg-slate-800"}`}>
-        {isProduction && <div className="w-2 h-2 rounded-full bg-emerald-400" />}
+        ${isProduction ? "border-emerald-500 bg-emerald-500/10 shadow-[0_0_8px_rgba(16,185,129,0.3)]" : "border-muted-foreground/30 bg-muted"}`}>
+        {isProduction && <div className="w-2 h-2 rounded-full bg-emerald-500" />}
       </div>
 
-      <div className={`bg-slate-800/50 border rounded-xl p-4 
-        ${isProduction ? "border-emerald-500/30" : "border-slate-700/50"}`}>
+      <div className={`bg-card border rounded-xl p-4 shadow-sm transition-all hover:shadow-md
+        ${isProduction ? "border-emerald-500/30" : "border-border"}`}>
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-white font-bold text-lg font-mono">v{version.ordinal}</span>
+            <span className="text-foreground font-bold text-lg font-mono">v{version.ordinal}</span>
             {isProduction && <Badge variant="success">PRODUCTION</Badge>}
             {isLatest && !isProduction && <Badge variant="info">latest</Badge>}
           </div>
@@ -104,11 +104,11 @@ function VersionCard({
         </div>
 
         {version.change_note && (
-          <p className="text-[0.8125rem] text-slate-400 italic mb-2">"{version.change_note}"</p>
+          <p className="text-[0.8125rem] text-muted-foreground italic mb-2">"{version.change_note}"</p>
         )}
 
         {model && (
-          <span className="inline-block text-[0.6875rem] font-mono bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded-full mb-3">
+          <span className="inline-block text-[0.6875rem] font-mono bg-primary/10 text-primary border border-indigo-500/20 px-2 py-0.5 rounded-full mb-3">
             {model}
           </span>
         )}
@@ -120,7 +120,7 @@ function VersionCard({
             <button
               onClick={() => onPromote(promptId, version.version_id)}
               disabled={promoting}
-              className="px-3 py-1 text-[0.75rem] border border-indigo-500/40 text-indigo-400 rounded-full hover:bg-indigo-500/10 transition-colors disabled:opacity-40"
+              className="px-3 py-1 text-[0.75rem] border border-indigo-500/40 text-primary rounded-full hover:bg-primary/10 transition-colors disabled:opacity-40"
             >
               {promoting ? "Promoting…" : "Promote →"}
             </button>
@@ -344,7 +344,7 @@ export function PromptsPage() {
         <Topbar
           title={selectedPrompt.title}
           subtitle={
-            <code className="text-indigo-400 text-[0.75rem] font-mono bg-indigo-500/10 px-2 py-0.5 rounded">
+            <code className="text-primary text-[0.75rem] font-mono bg-primary/10 px-2 py-0.5 rounded">
               {selectedPrompt.key}
             </code>
           }
@@ -357,19 +357,19 @@ export function PromptsPage() {
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             <button
               onClick={() => setSelectedPrompt(null)}
-              className="flex items-center gap-1.5 text-slate-400 hover:text-white text-[0.8125rem] transition-colors"
+              className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground text-[0.8125rem] transition-colors"
             >
               <ArrowLeft size={14} /> Back to Prompts
             </button>
 
             {/* Prompt meta */}
-            <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-5">
+            <div className="bg-card border border-border shadow-sm rounded-xl p-5">
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-white font-bold text-xl mb-1">{selectedPrompt.title}</h2>
-                  <code className="text-[0.75rem] font-mono text-slate-500">{selectedPrompt.key}</code>
+                  <h2 className="text-foreground font-bold text-xl mb-1">{selectedPrompt.title}</h2>
+                  <code className="text-[0.75rem] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">{selectedPrompt.key}</code>
                 </div>
-                <div className="flex items-center gap-3 text-[0.75rem] text-slate-500">
+                <div className="flex items-center gap-3 text-[0.75rem] text-muted-foreground">
                   <span className="flex items-center gap-1"><GitBranch size={12} /> {versions.length} versions</span>
                   {prodVersionId && <Badge variant="success">has production</Badge>}
                 </div>
@@ -377,22 +377,22 @@ export function PromptsPage() {
             </div>
 
             {/* ── New Version Editor ── */}
-            <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl overflow-hidden">
-              <div className="px-5 py-3 border-b border-slate-700/50 bg-slate-800/50">
-                <h3 className="text-white font-semibold text-sm uppercase tracking-wider">New Version</h3>
+            <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+              <div className="px-5 py-3 border-b border-border bg-muted/20">
+                <h3 className="text-foreground font-bold text-sm uppercase tracking-wider">New Version</h3>
               </div>
               <div className="p-5 space-y-4">
 
                 {/* Prompt text */}
                 <div>
-                  <label className="block text-[0.8125rem] font-medium text-slate-400 mb-1.5 uppercase tracking-wide text-xs">
+                  <label className="block text-[0.8125rem] font-medium text-muted-foreground mb-1.5 uppercase tracking-wide text-xs">
                     Prompt Text
                   </label>
                   <textarea
                     value={vPromptText}
                     onChange={e => setVPromptText(e.target.value)}
                     rows={8}
-                    className="w-full bg-slate-900 border border-slate-700 focus:border-indigo-500 rounded-lg px-4 py-3 text-[0.8125rem] text-white font-mono outline-none resize-y transition-colors placeholder:text-slate-600"
+                    className="w-full bg-background border border-slate-700 focus:border-indigo-500 rounded-lg px-4 py-3 text-[0.8125rem] text-foreground font-mono outline-none resize-y transition-colors placeholder:text-slate-600"
                     placeholder="Enter your prompt text… Use {{variable}} for injected values"
                   />
                   <TokenBar text={vPromptText} modelJson={vModelJson} />
@@ -401,12 +401,12 @@ export function PromptsPage() {
                 {/* Model settings */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-[0.8125rem] font-medium text-slate-400 uppercase tracking-wide text-xs">
+                    <label className="text-[0.8125rem] font-medium text-muted-foreground uppercase tracking-wide text-xs">
                       Model Settings
                     </label>
                     <button 
                       onClick={() => setShowAdvancedModel(!showAdvancedModel)}
-                      className="text-[0.6875rem] text-indigo-400 hover:text-indigo-300 uppercase tracking-wider font-semibold"
+                      className="text-[0.6875rem] text-primary hover:text-indigo-300 uppercase tracking-wider font-semibold"
                     >
                       {showAdvancedModel ? "Simple View" : "Advanced JSON"}
                     </button>
@@ -417,17 +417,17 @@ export function PromptsPage() {
                       value={vModelJson}
                       onChange={e => setVModelJson(e.target.value)}
                       rows={3}
-                      className="w-full bg-slate-900 border border-slate-700 focus:border-indigo-500 rounded-lg px-4 py-3 text-[0.8125rem] text-slate-300 font-mono outline-none resize-y transition-colors"
+                      className="w-full bg-background border border-slate-700 focus:border-indigo-500 rounded-lg px-4 py-3 text-[0.8125rem] text-slate-300 font-mono outline-none resize-y transition-colors"
                       placeholder='{"model":"llama-3.3-70b-versatile","temperature":0.7}'
                     />
                   ) : (
-                    <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 space-y-4">
+                    <div className="bg-background border border-slate-700 rounded-lg p-4 space-y-4">
                       <div>
                         <label className="block text-xs text-slate-500 mb-1.5 font-medium">Model</label>
                         <select 
                           value={currentModel}
                           onChange={e => handleVisualModelChange(e.target.value)}
-                          className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-[0.8125rem] text-white outline-none focus:border-indigo-500 transition-colors"
+                          className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-[0.8125rem] text-foreground outline-none focus:ring-2 focus:ring-primary/10 transition-all shadow-sm font-semibold"
                         >
                           {Object.keys(MODEL_PRICING).map(m => (
                             <option key={m} value={m}>{m}</option>
@@ -437,7 +437,7 @@ export function PromptsPage() {
                       <div>
                         <div className="flex items-center justify-between mb-1.5">
                           <label className="text-xs text-slate-500 font-medium">Temperature</label>
-                          <span className="text-xs text-indigo-400 font-mono">{currentTemp.toFixed(2)}</span>
+                          <span className="text-xs text-primary font-mono">{currentTemp.toFixed(2)}</span>
                         </div>
                         <input 
                           type="range" 
@@ -457,13 +457,13 @@ export function PromptsPage() {
 
                 {/* Change note */}
                 <div>
-                  <label className="block text-[0.8125rem] font-medium text-slate-400 mb-1.5 uppercase tracking-wide text-xs">
+                  <label className="block text-[0.8125rem] font-medium text-muted-foreground mb-1.5 uppercase tracking-wide text-xs">
                     Change Note
                   </label>
                   <input
                     value={vChangeNote}
                     onChange={e => setVChangeNote(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 focus:border-indigo-500 rounded-lg px-4 py-2.5 text-[0.8125rem] text-white outline-none transition-colors placeholder:text-slate-600"
+                    className="w-full bg-background border border-slate-700 focus:border-indigo-500 rounded-lg px-4 py-2.5 text-[0.8125rem] text-foreground outline-none transition-colors placeholder:text-slate-600"
                     placeholder="Describe what changed in this version…"
                   />
                 </div>
@@ -477,7 +477,7 @@ export function PromptsPage() {
                 <button
                   onClick={handleCreateVersion}
                   disabled={vSaving || !vPromptText.trim()}
-                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-semibold text-[0.8125rem] uppercase tracking-wider rounded-lg transition-colors flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-primary hover:bg-indigo-500 disabled:opacity-40 text-foreground font-semibold text-[0.8125rem] uppercase tracking-wider rounded-lg transition-colors flex items-center justify-center gap-2"
                 >
                   {vSaving ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : "Create New Version"}
                 </button>
@@ -485,16 +485,16 @@ export function PromptsPage() {
             </div>
 
             {/* ── Execute Section ── */}
-            <div className="bg-slate-800/20 border border-slate-700/50 rounded-xl overflow-hidden mt-6">
-              <div className="px-5 py-3 border-b border-slate-700/50 flex items-center gap-3">
+            <div className="bg-card border border-border shadow-sm rounded-xl overflow-hidden mt-6">
+              <div className="px-5 py-3 border-b border-border bg-muted/20 flex items-center gap-3">
                 <Play size={14} className="text-emerald-500" />
-                <h3 className="text-white font-semibold text-sm uppercase tracking-wider">Execute</h3>
+                <h3 className="text-foreground font-bold text-sm uppercase tracking-wider">Execute</h3>
                 {prodVersionId ? (
-                  <span className="text-[0.6875rem] font-mono text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  <span className="text-[0.6875rem] font-mono text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-semibold">
                     Active: v{prodVersionId}
                   </span>
                 ) : (
-                  <span className="text-[0.6875rem] font-mono text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                  <span className="text-[0.6875rem] font-mono text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 font-semibold">
                     No active version
                   </span>
                 )}
@@ -505,13 +505,13 @@ export function PromptsPage() {
                   <div className="space-y-3">
                     {detectedVars.map(variable => (
                       <div key={variable} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                        <label className="text-[0.8125rem] font-mono text-slate-400 w-32 shrink-0">
+                        <label className="text-[0.8125rem] font-mono text-muted-foreground w-32 shrink-0">
                           {`{{${variable}}}`}
                         </label>
                         <input
                           value={execInputs[variable] || ""}
                           onChange={e => setExecInputs({ ...execInputs, [variable]: e.target.value })}
-                          className="flex-1 bg-slate-900 border border-slate-700 focus:border-indigo-500 rounded-lg px-3 py-2 text-[0.8125rem] text-white outline-none transition-colors"
+                          className="flex-1 bg-background border border-slate-700 focus:border-indigo-500 rounded-lg px-3 py-2 text-[0.8125rem] text-foreground outline-none transition-colors"
                           placeholder={`Value for ${variable}...`}
                         />
                       </div>
@@ -527,7 +527,7 @@ export function PromptsPage() {
                   <button
                     onClick={handleExecute}
                     disabled={executing || !prodVersionId}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-semibold text-[0.8125rem] uppercase tracking-wider rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-foreground font-semibold text-[0.8125rem] uppercase tracking-wider rounded-lg transition-colors"
                   >
                     {executing ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
                     {executing ? "Sending…" : "Execute"}
@@ -545,7 +545,7 @@ export function PromptsPage() {
                       {runResult.latency_ms && <span className="flex items-center gap-1"><Clock size={12} /> {runResult.latency_ms}ms</span>}
                       {runResult.cost_usd && <span className="flex items-center gap-1"><DollarSign size={12} /> ${runResult.cost_usd.toFixed(6)}</span>}
                     </div>
-                    <div className="p-4 bg-slate-900/50">
+                    <div className="p-4 bg-background/50">
                       <pre className="text-[0.8125rem] text-slate-300 whitespace-pre-wrap font-mono leading-relaxed">
                         {runResult.error_detail || (runResult as any).response || runResult.raw_response?.choices?.[0]?.message?.content || "No output"}
                       </pre>
@@ -557,9 +557,9 @@ export function PromptsPage() {
           </div>
 
           {/* ── Right: Timeline ── */}
-          <aside className="w-80 shrink-0 border-l border-slate-700/50 overflow-y-auto p-5 bg-slate-900/30">
+          <aside className="w-80 shrink-0 border-l border-border/50 overflow-y-auto p-5 bg-background/30">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-white font-semibold text-sm">Timeline</h3>
+              <h3 className="text-foreground font-semibold text-sm">Timeline</h3>
               <span className="text-[0.75rem] font-mono text-slate-500">
                 {versionsLoading ? "…" : `${versions.length} version${versions.length !== 1 ? "s" : ""}`}
               </span>
@@ -593,7 +593,7 @@ export function PromptsPage() {
 
             {/* Promotion history */}
             {aliasHistory.length > 0 && (
-              <div className="mt-6 pt-6 border-t border-slate-700/50">
+              <div className="mt-6 pt-6 border-t border-border/50">
                 <h4 className="text-[0.75rem] uppercase tracking-wider text-slate-500 font-semibold mb-3">
                   Promotion History
                 </h4>
@@ -602,7 +602,7 @@ export function PromptsPage() {
                     <div key={i} className="flex items-center gap-2 text-[0.75rem] font-mono text-slate-500">
                       <span className="text-slate-600">{a.from_version_id != null ? `v${a.from_version_id}` : "none"}</span>
                       <span className="text-slate-600">→</span>
-                      <span className="text-indigo-400">v{a.to_version_id}</span>
+                      <span className="text-primary">v{a.to_version_id}</span>
                       <span className="ml-auto text-slate-600 text-[0.6875rem]">
                         {new Date(a.changed_at || a.promoted_at).toLocaleTimeString()}
                       </span>
@@ -627,25 +627,25 @@ export function PromptsPage() {
       <Topbar title="Prompts" subtitle="Version control for your LLM prompts" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <div className="flex items-center bg-slate-800/50 border border-slate-700 rounded-lg px-3 py-1.5 gap-2">
-            <Search size={14} className="text-slate-500" />
+          <div className="flex items-center bg-background border border-border shadow-sm rounded-lg px-3 py-1.5 gap-2 group focus-within:ring-2 focus-within:ring-primary/10 transition-all">
+            <Search size={14} className="text-muted-foreground group-focus-within:text-primary" />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search prompts…"
-              className="bg-transparent text-[0.8125rem] text-slate-300 placeholder:text-slate-600 outline-none w-56"
+              className="bg-transparent text-[0.8125rem] text-foreground placeholder:text-muted-foreground/50 outline-none w-56 font-medium"
             />
           </div>
           <button
             onClick={() => setCreateOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-[0.8125rem] rounded-lg transition-colors shadow-lg shadow-indigo-500/20"
+            className="flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-[0.8125rem] font-bold rounded-lg transition-all shadow-sm active:scale-95"
           >
             <Plus size={14} /> New Prompt
           </button>
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-16 gap-2 text-slate-400">
+          <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
             <Loader2 size={20} className="animate-spin" /> Loading prompts…
           </div>
         ) : error ? (
@@ -655,15 +655,15 @@ export function PromptsPage() {
             <button onClick={loadPrompts} className="mt-3 px-4 py-1.5 bg-rose-500/20 rounded-lg text-rose-300 text-xs hover:bg-rose-500/30">Retry</button>
           </div>
         ) : (
-          <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl overflow-hidden">
+          <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
             <table className="w-full">
-              <thead className="sticky top-0 z-10 bg-slate-900 shadow-sm shadow-slate-950/50">
-                <tr className="border-b border-slate-700/50 text-slate-500 uppercase text-[0.6875rem] font-semibold tracking-wider">
-                  <th className="text-left px-4 py-3">Prompt Key</th>
-                  <th className="text-left px-4 py-3">Title</th>
-                  <th className="text-left px-4 py-3">Status</th>
-                  <th className="text-left px-4 py-3">Updated</th>
-                  <th className="text-right px-4 py-3"></th>
+              <thead className="sticky top-0 z-10 bg-muted/30">
+                <tr className="border-b border-border text-muted-foreground uppercase text-[0.6875rem] font-bold tracking-wider">
+                  <th className="text-left px-4 py-4">Prompt Key</th>
+                  <th className="text-left px-4 py-4">Title</th>
+                  <th className="text-left px-4 py-4">Status</th>
+                  <th className="text-left px-4 py-4">Updated</th>
+                  <th className="text-right px-4 py-4"></th>
                 </tr>
               </thead>
               <tbody>
@@ -694,12 +694,12 @@ export function PromptsPage() {
                         {p.production_version_id && (
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(74,222,128,0.6)]" />
                         )}
-                        <code className="text-[0.8125rem] text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">
+                        <code className="text-[0.8125rem] text-primary bg-primary/10 px-2 py-0.5 rounded">
                           {p.key}
                         </code>
                         <button
                           onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(p.key); }}
-                          className="text-slate-600 hover:text-slate-400"
+                          className="text-slate-600 hover:text-muted-foreground"
                         >
                           <Copy size={12} />
                         </button>
@@ -737,14 +737,14 @@ export function PromptsPage() {
           <>
             <button
               onClick={() => { setCreateOpen(false); resetCreateModal(); }}
-              className="px-4 py-2 text-[0.8125rem] text-slate-400 border border-slate-600 rounded-lg hover:bg-slate-800"
+              className="px-6 py-2.5 text-[0.8125rem] text-muted-foreground font-bold border border-border rounded-xl hover:bg-muted/50 hover:text-foreground transition-all shadow-sm active:scale-95"
             >
               Cancel
             </button>
             <button
               onClick={handleCreate}
               disabled={creating || !newTitle.trim()}
-              className="px-5 py-2 text-[0.8125rem] bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-lg flex items-center gap-2"
+              className="px-5 py-2 text-[0.8125rem] bg-primary hover:bg-indigo-500 disabled:opacity-40 text-foreground rounded-lg flex items-center gap-2"
             >
               {creating ? <><Loader2 size={13} className="animate-spin" /> Creating…</> : "Create"}
             </button>
@@ -754,13 +754,13 @@ export function PromptsPage() {
         <div className="space-y-4">
           {/* Title first */}
           <div>
-            <label className="block text-[0.8125rem] text-slate-400 mb-1.5 uppercase tracking-wide text-xs font-medium">
+            <label className="block text-[0.8125rem] text-muted-foreground mb-1.5 uppercase tracking-wide text-xs font-bold">
               Title
             </label>
             <input
               value={newTitle}
               onChange={e => handleTitleChange(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-[0.8125rem] text-white outline-none focus:border-indigo-500 transition-colors"
+              className="w-full bg-background border border-border rounded-xl px-4 py-3 text-[0.8125rem] text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all shadow-sm"
               placeholder="e.g. Customer Support Bot"
               autoFocus
             />
@@ -768,29 +768,29 @@ export function PromptsPage() {
 
           {/* Key (auto-generated, editable) */}
           <div>
-            <label className="block text-[0.8125rem] text-slate-400 mb-1 uppercase tracking-wide text-xs font-medium">
-              Key <span className="text-slate-600 normal-case">(auto-generated, editable)</span>
+            <label className="block text-[0.8125rem] text-muted-foreground mb-1 uppercase tracking-wide text-xs font-bold">
+              Key <span className="text-muted-foreground/60 normal-case font-normal">(auto-generated from title)</span>
             </label>
             <input
               value={keyManuallyEdited ? newKey : (newTitle
                 ? newTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) + "-······"
                 : "")}
               onChange={e => { setNewKey(e.target.value); setKeyManuallyEdited(true); }}
-              className="w-full bg-slate-800/50 border border-slate-700/50 rounded-lg px-3 py-2.5 text-[0.8125rem] text-slate-400 font-mono outline-none focus:border-indigo-500 focus:text-white transition-colors"
-              placeholder="auto-generated from title"
+              className="w-full bg-muted/50 border border-border rounded-xl px-4 py-3 text-[0.8125rem] text-muted-foreground font-mono outline-none focus:border-primary focus:text-foreground transition-all shadow-sm"
+              placeholder="unique-identifier-slug"
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-[0.8125rem] text-slate-400 mb-1.5 uppercase tracking-wide text-xs font-medium">
-              Description <span className="text-slate-600 normal-case">(optional)</span>
+            <label className="block text-[0.8125rem] text-muted-foreground mb-1.5 uppercase tracking-wide text-xs font-bold">
+              Description <span className="text-muted-foreground/60 normal-case font-normal">(optional)</span>
             </label>
             <textarea
               value={newDesc}
               onChange={e => setNewDesc(e.target.value)}
               rows={3}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-[0.8125rem] text-white outline-none focus:border-indigo-500 transition-colors resize-none placeholder:text-slate-600"
+              className="w-full bg-background border border-border rounded-xl px-4 py-3 text-[0.8125rem] text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all resize-none shadow-sm placeholder:text-muted-foreground/40"
               placeholder="Describe the purpose of this prompt…"
             />
           </div>

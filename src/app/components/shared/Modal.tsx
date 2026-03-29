@@ -12,18 +12,18 @@ interface ModalProps {
 export function Modal({ open, onClose, title, children, footer }: ModalProps) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center animate-in fade-in duration-200">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-slate-900 border border-slate-700 rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
-          <h2 className="text-white text-[0.9375rem]">{title}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
+      <div className="relative bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h2 className="text-foreground text-[0.9375rem] font-semibold">{title}</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-all hover:bg-muted p-1.5 rounded-lg">
             <X size={18} />
           </button>
         </div>
-        <div className="px-6 py-4 overflow-y-auto flex-1">{children}</div>
+        <div className="px-6 py-4 overflow-y-auto flex-1 text-foreground">{children}</div>
         {footer && (
-          <div className="px-6 py-4 border-t border-slate-700 flex justify-end gap-3">{footer}</div>
+          <div className="px-6 py-4 border-t border-border flex justify-end gap-3 bg-muted/20">{footer}</div>
         )}
       </div>
     </div>

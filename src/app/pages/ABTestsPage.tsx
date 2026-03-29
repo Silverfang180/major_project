@@ -177,20 +177,20 @@ export function ABTestsPage() {
       <Topbar title="A/B Tests" subtitle="Compare prompt versions and models side-by-side" />
       <div className="p-6">
         {/* Controls Bar */}
-        <div className="flex flex-wrap items-center gap-4 mb-6">
-          <div className="flex items-center gap-2">
-            <label className="text-[0.8125rem] text-slate-400">Dataset:</label>
-            <select value={selectedDataset} onChange={handleDatasetChange} className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-[0.8125rem] text-white outline-none w-56">
+        <div className="flex flex-wrap items-center gap-4 mb-8 bg-card border border-border p-4 rounded-2xl shadow-sm transition-all">
+          <div className="flex items-center gap-3">
+            <label className="text-[0.8125rem] text-muted-foreground font-bold uppercase tracking-wider">Dataset:</label>
+            <select value={selectedDataset} onChange={handleDatasetChange} className="bg-background border border-border rounded-xl px-4 py-2 text-[0.8125rem] text-foreground outline-none w-64 focus:ring-2 focus:ring-primary/10 transition-all shadow-sm font-medium">
               {datasets.map((d) => <option key={d.dataset_id} value={d.dataset_id}>{d.name}</option>)}
             </select>
           </div>
-          <div className="h-6 w-px bg-slate-700" />
-          <div className="flex items-center gap-1 bg-slate-800/50 rounded-lg p-0.5 border border-slate-700/50">
+          <div className="h-8 w-px bg-border/50 hidden sm:block" />
+          <div className="flex items-center gap-1.5 bg-muted/40 rounded-xl p-1 border border-border shadow-inner">
             <button
               onClick={() => handleModeChange("prompt")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[0.8125rem] transition-all ${mode === "prompt"
-                ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/30"
-                : "text-slate-400 hover:text-white border border-transparent"
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[0.8125rem] font-bold transition-all ${mode === "prompt"
+                ? "bg-primary text-primary-foreground shadow-sm scale-[1.02]"
+                : "text-muted-foreground hover:bg-muted"
                 }`}
             >
               <ArrowRightLeft size={14} />
@@ -198,9 +198,9 @@ export function ABTestsPage() {
             </button>
             <button
               onClick={() => handleModeChange("model")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[0.8125rem] transition-all ${mode === "model"
-                ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/30"
-                : "text-slate-400 hover:text-white border border-transparent"
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[0.8125rem] font-bold transition-all ${mode === "model"
+                ? "bg-primary text-primary-foreground shadow-sm scale-[1.02]"
+                : "text-muted-foreground hover:bg-muted"
                 }`}
             >
               <Cpu size={14} />
@@ -210,14 +210,14 @@ export function ABTestsPage() {
         </div>
 
         {/* Mode Description */}
-        <div className="mb-6 bg-slate-800/20 border border-slate-700/30 rounded-lg px-4 py-3">
+        <div className="mb-8 bg-primary/5 border border-primary/10 rounded-2xl px-5 py-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-500">
           {mode === "prompt" ? (
-            <p className="text-[0.8125rem] text-slate-400">
-              <span className="text-indigo-400 font-medium">Prompt Optimization Mode:</span> Comparing different prompt versions on the <span className="text-white font-medium">same LLM</span>. Find out which prompt wording yields better accuracy.
+            <p className="text-[0.8125rem] text-muted-foreground leading-relaxed">
+              <span className="text-primary font-bold uppercase tracking-tight mr-2">Prompt Optimization Mode</span> Comparing different prompt versions on the <span className="text-foreground font-bold underline decoration-primary/30 decoration-2 underline-offset-4">same LLM</span>. Find out which prompt wording yields better accuracy.
             </p>
           ) : (
-            <p className="text-[0.8125rem] text-slate-400">
-              <span className="text-indigo-400 font-medium">Model Migration Mode:</span> Comparing different LLMs running the <span className="text-white font-medium">same prompt version</span>. Find out if a cheaper model can match a premium one.
+            <p className="text-[0.8125rem] text-muted-foreground leading-relaxed">
+              <span className="text-primary font-bold uppercase tracking-tight mr-2">Model Migration Mode</span> Comparing different LLMs running the <span className="text-foreground font-bold underline decoration-primary/30 decoration-2 underline-offset-4">same prompt version</span>. Find out if a cheaper model can match a premium one.
             </p>
           )}
         </div>
@@ -225,19 +225,19 @@ export function ABTestsPage() {
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 className="animate-spin text-slate-500" /></div>
         ) : !data || allJobs.length < 2 ? (
-          <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-8 text-center text-slate-500 text-sm">
+          <div className="bg-card border border-border rounded-2xl p-12 text-center text-muted-foreground text-[0.8125rem] font-medium shadow-sm">
             Need at least two completed evaluation jobs on this dataset for A/B comparison.
           </div>
         ) : (
           <div className="space-y-6">
             {/* Variant Selectors */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="flex items-center gap-3">
-                <Badge variant="neutral">A</Badge>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-2">
+              <div className="flex items-center gap-4 bg-muted/20 border border-border p-3 rounded-2xl shadow-inner">
+                <Badge variant="neutral" className="h-8 w-8 flex items-center justify-center rounded-lg shadow-sm">A</Badge>
                 <select
                   value={variantAId}
                   onChange={(e) => handleVariantSelect("A", e.target.value)}
-                  className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-[0.8125rem] text-white outline-none"
+                  className="flex-1 bg-background border border-border rounded-xl px-4 py-2 text-[0.8125rem] text-foreground outline-none focus:ring-2 focus:ring-primary/10 transition-all font-semibold"
                 >
                   {getVariantOptions(variantB).map((j) => (
                     <option key={j.job_id} value={j.job_id}>
@@ -246,12 +246,12 @@ export function ABTestsPage() {
                   ))}
                 </select>
               </div>
-              <div className="flex items-center gap-3">
-                <Badge variant="success">B</Badge>
+              <div className="flex items-center gap-4 bg-primary/5 border border-primary/10 p-3 rounded-2xl shadow-inner">
+                <Badge variant="success" className="h-8 w-8 flex items-center justify-center rounded-lg shadow-sm">B</Badge>
                 <select
                   value={variantBId}
                   onChange={(e) => handleVariantSelect("B", e.target.value)}
-                  className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-[0.8125rem] text-white outline-none"
+                  className="flex-1 bg-background border border-border rounded-xl px-4 py-2 text-[0.8125rem] text-foreground outline-none focus:ring-2 focus:ring-primary/10 transition-all font-semibold"
                 >
                   {getVariantOptions(variantA).map((j) => (
                     <option key={j.job_id} value={j.job_id}>
@@ -265,166 +265,187 @@ export function ABTestsPage() {
             {variantA && variantB && (
               <>
                 {/* Side-by-side Cards */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative">
-                  <div className="hidden lg:flex absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-slate-800 border border-slate-700 rounded-full items-center justify-center z-10 text-slate-400 text-xs font-bold">
+                {/* Side-by-side Cards */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 relative pt-4">
+                  <div className="hidden lg:flex absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-background border border-border rounded-full items-center justify-center z-10 text-primary text-xs font-black shadow-lg">
                     VS
                   </div>
 
                   {/* Variant A */}
-                  <div className={`bg-slate-800/30 border rounded-xl p-6 ${winner === "A" ? "ring-1 ring-emerald-500/30 border-emerald-500/20" : "border-slate-700/50"}`}>
-                    <div className="flex justify-between items-start mb-6">
+                  <div className={`bg-card border rounded-2xl p-6 shadow-sm transition-all hover:shadow-md ${winner === "A" ? "ring-2 ring-emerald-500 shadow-emerald-500/10" : "border-border"}`}>
+                    <div className="flex justify-between items-start mb-6 pb-6 border-b border-border/50">
                       <div>
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-2">
                           <Badge variant="neutral">Variant A</Badge>
                           {winner === "A" && <Badge variant="success">Winner</Badge>}
                         </div>
-                        <h3 className="text-white font-medium">{variantA.model}</h3>
-                        <p className="text-slate-400 text-sm">Version {variantA.version_id}</p>
+                        <h3 className="text-foreground font-bold text-lg">{variantA.model}</h3>
+                        <p className="text-muted-foreground text-xs font-mono">VERSION: {variantA.version_id}</p>
                       </div>
                       <div className="text-right">
-                        <div className={`text-2xl font-semibold ${winner === "A" ? "text-emerald-400" : "text-white"}`}>{((variantA.accuracy || 0) * 100).toFixed(1)}%</div>
-                        <div className="text-slate-500 text-xs mt-1">Accuracy</div>
+                        <div className={`text-3xl font-bold tracking-tight ${winner === "A" ? "text-emerald-500" : "text-foreground"}`}>{((variantA.accuracy || 0) * 100).toFixed(1)}%</div>
+                        <div className="text-muted-foreground text-[0.6rem] font-bold uppercase tracking-widest mt-1">Accuracy Score</div>
                       </div>
                     </div>
-                    <div className="space-y-4">
+                    <div className="space-y-5">
                       <div>
-                        <div className="flex justify-between text-xs mb-1.5">
-                          <span className="text-slate-400">Cost Efficiency</span>
-                          <span className="text-slate-300 font-medium">${variantA.cost_per_correct?.toFixed(4)}/correct</span>
+                        <div className="flex justify-between text-[0.6875rem] font-bold uppercase tracking-wider mb-2">
+                          <span className="text-muted-foreground">Cost Efficiency</span>
+                          <span className="text-foreground">${variantA.cost_per_correct?.toFixed(4)} <span className="text-muted-foreground/60">/correct</span></span>
                         </div>
-                        <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-indigo-500 transition-all" style={{ width: `${Math.min(((variantA.accuracy || 0) * 100), 100)}%` }} />
+                        <div className="h-2 w-full bg-muted rounded-full overflow-hidden shadow-inner">
+                          <div className="h-full bg-primary transition-all duration-1000" style={{ width: `${Math.min(((variantA.accuracy || 0) * 100), 100)}%` }} />
                         </div>
                       </div>
                       <div>
-                        <div className="flex justify-between text-xs mb-1.5">
-                          <span className="text-slate-400">P50 Latency</span>
-                          <span className="text-slate-300 font-medium">{variantA.p50_latency_ms}ms</span>
+                        <div className="flex justify-between text-[0.6875rem] font-bold uppercase tracking-wider mb-2">
+                          <span className="text-muted-foreground">P50 Latency</span>
+                          <span className="text-foreground">{variantA.p50_latency_ms} <span className="text-muted-foreground/60">ms</span></span>
                         </div>
-                        <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-indigo-400 transition-all" style={{ width: `${Math.max(100 - ((variantA.p50_latency_ms || 0) / 20), 10)}%` }} />
+                        <div className="h-2 w-full bg-muted rounded-full overflow-hidden shadow-inner">
+                          <div className="h-full bg-primary/40 transition-all duration-1000" style={{ width: `${Math.max(100 - ((variantA.p50_latency_ms || 0) / 20), 10)}%` }} />
                         </div>
                       </div>
-                      <div className="text-xs text-slate-500 pt-2 border-t border-slate-700/30">
-                        Total Cost: <span className="text-amber-400">${(variantA.total_cost || 0).toFixed(4)}</span> · Examples: {variantA.total_examples || "—"}
+                      <div className="text-[0.6875rem] text-muted-foreground pt-3 flex items-center justify-between font-medium">
+                        <span>Total Cost: <span className="text-amber-600 font-bold">${(variantA.total_cost || 0).toFixed(4)}</span></span>
+                        <span>Examples: <span className="text-foreground font-bold">{variantA.total_examples || "—"}</span></span>
                       </div>
                     </div>
                   </div>
 
                   {/* Variant B */}
-                  <div className={`bg-slate-800/30 border rounded-xl p-6 ${winner === "B" ? "ring-1 ring-emerald-500/30 border-emerald-500/20" : "border-slate-700/50"}`}>
-                    <div className="flex justify-between items-start mb-6">
+                  <div className={`bg-card border rounded-2xl p-6 shadow-sm transition-all hover:shadow-md ${winner === "B" ? "ring-2 ring-emerald-500 shadow-emerald-500/10" : "border-border"}`}>
+                    <div className="flex justify-between items-start mb-6 pb-6 border-b border-border/50">
                       <div>
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-2">
                           <Badge variant="success">Variant B</Badge>
                           {winner === "B" && <Badge variant="success">Winner</Badge>}
                         </div>
-                        <h3 className="text-white font-medium">{variantB.model}</h3>
-                        <p className="text-slate-400 text-sm">Version {variantB.version_id}</p>
+                        <h3 className="text-foreground font-bold text-lg">{variantB.model}</h3>
+                        <p className="text-muted-foreground text-xs font-mono">VERSION: {variantB.version_id}</p>
                       </div>
                       <div className="text-right">
-                        <div className={`text-2xl font-semibold ${winner === "B" ? "text-emerald-400" : "text-white"}`}>{((variantB.accuracy || 0) * 100).toFixed(1)}%</div>
-                        <div className="text-slate-500 text-xs mt-1">Accuracy</div>
+                        <div className={`text-3xl font-bold tracking-tight ${winner === "B" ? "text-emerald-500" : "text-foreground"}`}>{((variantB.accuracy || 0) * 100).toFixed(1)}%</div>
+                        <div className="text-muted-foreground text-[0.6rem] font-bold uppercase tracking-widest mt-1">Accuracy Score</div>
                       </div>
                     </div>
-                    <div className="space-y-4">
+                    <div className="space-y-5">
                       <div>
-                        <div className="flex justify-between text-xs mb-1.5">
-                          <span className="text-slate-400">Cost Efficiency</span>
-                          <span className="text-slate-300 font-medium">${variantB.cost_per_correct?.toFixed(4)}/correct</span>
+                        <div className="flex justify-between text-[0.6875rem] font-bold uppercase tracking-wider mb-2">
+                          <span className="text-muted-foreground">Cost Efficiency</span>
+                          <span className="text-foreground">${variantB.cost_per_correct?.toFixed(4)} <span className="text-muted-foreground/60">/correct</span></span>
                         </div>
-                        <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-emerald-500 transition-all" style={{ width: `${Math.min(((variantB.accuracy || 0) * 100), 100)}%` }} />
+                        <div className="h-2 w-full bg-muted rounded-full overflow-hidden shadow-inner">
+                          <div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${Math.min(((variantB.accuracy || 0) * 100), 100)}%` }} />
                         </div>
                       </div>
                       <div>
-                        <div className="flex justify-between text-xs mb-1.5">
-                          <span className="text-slate-400">P50 Latency</span>
-                          <span className="text-slate-300 font-medium">{variantB.p50_latency_ms}ms</span>
+                        <div className="flex justify-between text-[0.6875rem] font-bold uppercase tracking-wider mb-2">
+                          <span className="text-muted-foreground">P50 Latency</span>
+                          <span className="text-foreground">{variantB.p50_latency_ms} <span className="text-muted-foreground/60">ms</span></span>
                         </div>
-                        <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-emerald-400 transition-all" style={{ width: `${Math.max(100 - ((variantB.p50_latency_ms || 0) / 20), 10)}%` }} />
+                        <div className="h-2 w-full bg-muted rounded-full overflow-hidden shadow-inner">
+                          <div className="h-full bg-emerald-400 transition-all duration-1000" style={{ width: `${Math.max(100 - ((variantB.p50_latency_ms || 0) / 20), 10)}%` }} />
                         </div>
                       </div>
-                      <div className="text-xs text-slate-500 pt-2 border-t border-slate-700/30">
-                        Total Cost: <span className="text-amber-400">${(variantB.total_cost || 0).toFixed(4)}</span> · Examples: {variantB.total_examples || "—"}
+                      <div className="text-[0.6875rem] text-muted-foreground pt-3 flex items-center justify-between font-medium">
+                        <span>Total Cost: <span className="text-amber-600 font-bold">${(variantB.total_cost || 0).toFixed(4)}</span></span>
+                        <span>Examples: <span className="text-foreground font-bold">{variantB.total_examples || "—"}</span></span>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Charts + Winner */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   <ChartCard title="Metric Comparison" subtitle="Radar view of multi-dimensional performance">
-                    <div className="h-[300px]">
+                    <div className="h-[320px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <RadarChart cx="50%" cy="50%" outerRadius="70%" data={[
                           { metric: 'Accuracy', A: (variantA.accuracy || 0) * 100, B: (variantB.accuracy || 0) * 100 },
                           { metric: 'Cost Eff', A: 100 - ((variantA.cost_per_correct || 0) * 100), B: 100 - ((variantB.cost_per_correct || 0) * 100) },
-                          { metric: 'Speed', A: Math.max(0, 1000 - (variantA.p50_latency_ms || 0)), B: Math.max(0, 1000 - (variantB.p50_latency_ms || 0)) }
+                          { metric: 'Speed', A: Math.max(0, 100 - ((variantA.p50_latency_ms || 0) / 20)), B: Math.max(0, 100 - ((variantB.p50_latency_ms || 0) / 20)) }
                         ]}>
-                          <PolarGrid stroke="#1c2130" />
-                          <PolarAngleAxis dataKey="metric" tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                          <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} stroke="#1c2130" />
-                          <Radar name="Variant A" dataKey="A" stroke="#008cff" fill="#008cff" fillOpacity={0.25} />
-                          <Radar name="Variant B" dataKey="B" stroke="#10b981" fill="#10b981" fillOpacity={0.25} />
-                          <Legend iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+                          <PolarGrid stroke="currentColor" className="text-border" />
+                          <PolarAngleAxis dataKey="metric" tick={{ fill: 'currentColor', fontSize: 11, fontWeight: 700 }} className="text-muted-foreground" />
+                          <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} stroke="currentColor" className="text-border" />
+                          <Radar name="A" dataKey="A" stroke="var(--primary)" fill="var(--primary)" fillOpacity={0.15} dot={{ r: 4, fill: 'var(--primary)' }} />
+                          <Radar name="B" dataKey="B" stroke="#10b981" fill="#10b981" fillOpacity={0.15} dot={{ r: 4, fill: '#10b981' }} />
+                          <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 600, paddingTop: '20px' }} />
                         </RadarChart>
                       </ResponsiveContainer>
                     </div>
                   </ChartCard>
 
-                  <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-6">
-                    <h3 className="text-sm font-medium text-white mb-4">
+                  <div className="bg-card border border-border rounded-2xl p-6 shadow-sm overflow-hidden flex flex-col">
+                    <h3 className="text-[0.7rem] font-black text-muted-foreground uppercase tracking-[0.2em] mb-6">
                       {mode === "prompt" ? "Prompt Optimization Result" : "Model Migration Result"}
                     </h3>
 
                     {/* Mode context */}
-                    <div className="text-xs text-slate-500 mb-4 p-3 bg-slate-800/50 rounded-lg border border-slate-700/30">
+                    <div className="text-[0.75rem] text-muted-foreground mb-6 p-4 bg-muted/40 rounded-xl border border-border/50">
                       {mode === "prompt" ? (
-                        <>Fixed LLM: <span className="text-indigo-400 font-medium">{variantA.model}</span> · Comparing prompt v{variantA.version_id} vs v{variantB.version_id}</>
+                        <div className="flex items-center gap-2">
+                          <span className="opacity-60">Fixed LLM:</span> 
+                          <span className="text-primary font-bold">{variantA.model}</span> 
+                          <span className="h-1 w-1 bg-border rounded-full mx-1" />
+                          <span className="opacity-60">Versions:</span> 
+                          <span className="text-foreground font-bold">{variantA.version_id} vs {variantB.version_id}</span>
+                        </div>
                       ) : (
-                        <>Fixed Prompt: <span className="text-indigo-400 font-medium">Version {variantA.version_id}</span> · Comparing {variantA.model} vs {variantB.model}</>
+                        <div className="flex items-center gap-2">
+                          <span className="opacity-60">Fixed Prompt:</span> 
+                          <span className="text-primary font-bold">V {variantA.version_id}</span> 
+                          <span className="h-1 w-1 bg-border rounded-full mx-1" />
+                          <span className="opacity-60">Comparing:</span> 
+                          <span className="text-foreground font-bold">{variantA.model} vs {variantB.model}</span>
+                        </div>
                       )}
                     </div>
 
-                    {winner !== "tie" ? (
-                      <>
-                        <div className="flex items-start gap-4 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg mb-6">
-                          <div className="mt-0.5"><CheckCircle2 className="text-emerald-400" size={20} /></div>
+                    <div className="flex-1">
+                      {winner !== "tie" ? (
+                        <div className="space-y-6">
+                          <div className="flex items-start gap-4 p-5 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl ring-4 ring-emerald-500/5">
+                            <div className="mt-1 bg-emerald-500/10 p-2 rounded-lg">
+                              <CheckCircle2 className="text-emerald-500" size={24} />
+                            </div>
+                            <div>
+                              <h4 className="text-emerald-600 font-black text-sm mb-1.5 uppercase tracking-wide">
+                                Variant {winner} is recommended
+                              </h4>
+                              <p className="text-muted-foreground text-[0.8125rem] leading-relaxed font-medium">
+                                {mode === "prompt" ? (
+                                  <>Prompt version <span className="text-foreground font-bold">{winner === "A" ? variantA.version_id : variantB.version_id}</span> achieved <span className="text-emerald-600 font-bold">{(((winner === "A" ? variantA.accuracy : variantB.accuracy) || 0) * 100).toFixed(1)}%</span> accuracy on {variantA.model}, outperforming the alternative.</>
+                                ) : (
+                                  <><span className="text-foreground font-bold">{winner === "A" ? variantA.model : variantB.model}</span> achieved <span className="text-emerald-600 font-bold">{(((winner === "A" ? variantA.accuracy : variantB.accuracy) || 0) * 100).toFixed(1)}%</span> accuracy, outperforming the legacy model.</>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={handlePromote}
+                            disabled={promoting}
+                            className="w-full flex items-center justify-center gap-3 py-3.5 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-[0.8125rem] font-bold rounded-2xl transition-all shadow-lg shadow-primary/20 active:scale-[0.98]"
+                          >
+                            {promoting ? <Loader2 size={16} className="animate-spin" /> : null}
+                            Promote Variant {winner} to Production <ChevronRight size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-start gap-4 p-5 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
+                          <div className="mt-1 bg-amber-500/10 p-2 rounded-lg">
+                            <SplitSquareHorizontal className="text-amber-600" size={24} />
+                          </div>
                           <div>
-                            <h4 className="text-emerald-400 font-medium text-sm mb-1">
-                              Variant {winner} is recommended
-                            </h4>
-                            <p className="text-slate-400 text-[0.8125rem] leading-relaxed">
-                              {mode === "prompt" ? (
-                                <>Prompt version {winner === "A" ? variantA.version_id : variantB.version_id} achieved {(((winner === "A" ? variantA.accuracy : variantB.accuracy) || 0) * 100).toFixed(1)}% accuracy on {variantA.model}, outperforming the alternative at {(((winner === "A" ? variantB.accuracy : variantA.accuracy) || 0) * 100).toFixed(1)}%.</>
-                              ) : (
-                                <>{winner === "A" ? variantA.model : variantB.model} achieved {(((winner === "A" ? variantA.accuracy : variantB.accuracy) || 0) * 100).toFixed(1)}% accuracy with prompt v{variantA.version_id}, outperforming {winner === "A" ? variantB.model : variantA.model} at {(((winner === "A" ? variantB.accuracy : variantA.accuracy) || 0) * 100).toFixed(1)}%.</>
-                              )}
+                            <h4 className="text-amber-700 font-black text-sm mb-1.5 uppercase tracking-wide">Statistical Tie</h4>
+                            <p className="text-muted-foreground text-[0.8125rem] leading-relaxed font-medium">
+                              Both variants performed equally on accuracy and cost metrics. Consider running more examples to reach statistical significance.
                             </p>
                           </div>
                         </div>
-                        <button
-                          onClick={handlePromote}
-                          disabled={promoting}
-                          className="w-full flex items-center justify-center gap-2 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-[0.8125rem] rounded-lg transition-colors"
-                        >
-                          {promoting ? <Loader2 size={14} className="animate-spin" /> : null}
-                          Promote Variant {winner} to Production <ChevronRight size={14} />
-                        </button>
-                      </>
-                    ) : (
-                      <div className="flex items-start gap-4 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                        <div className="mt-0.5"><SplitSquareHorizontal className="text-amber-400" size={20} /></div>
-                        <div>
-                          <h4 className="text-amber-400 font-medium text-sm mb-1">Statistical Tie</h4>
-                          <p className="text-slate-400 text-[0.8125rem] leading-relaxed">
-                            Both variants performed equally on accuracy and cost metrics. Consider running more examples to break the tie.
-                          </p>
-                        </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
               </>

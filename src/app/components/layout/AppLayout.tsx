@@ -9,8 +9,8 @@ export function AppLayout() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
       </div>
     );
   }
@@ -19,7 +19,7 @@ export function AppLayout() {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
   return (
-    <div className="min-h-screen bg-slate-900 font-[Inter,system-ui,sans-serif]">
+    <div className="min-h-screen bg-background text-foreground font-[Inter,system-ui,sans-serif] transition-colors duration-300">
       <Sidebar />
       <div className="ml-[260px] min-h-screen">
         <main className="page-fade-in min-h-screen">

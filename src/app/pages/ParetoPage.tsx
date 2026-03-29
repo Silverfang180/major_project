@@ -108,32 +108,32 @@ export function ParetoPage() {
       <Topbar title="Pareto Frontier" subtitle="Find the optimal balance between performance and constraints" />
       <div className="p-6">
         {/* Controls */}
-        <div className="flex flex-wrap items-center gap-4 mb-6">
-          <div className="flex items-center gap-2">
-            <label className="text-[0.8125rem] text-slate-400">Dataset:</label>
-            <select value={selectedDataset} onChange={handleDatasetChange} className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-[0.8125rem] text-white outline-none w-56">
+        <div className="flex flex-wrap items-center gap-6 mb-8 bg-card border border-border p-5 rounded-2xl shadow-sm">
+          <div className="flex items-center gap-3">
+            <label className="text-[0.8125rem] text-muted-foreground font-bold uppercase tracking-wider">Dataset:</label>
+            <select value={selectedDataset} onChange={handleDatasetChange} className="bg-background border border-border rounded-xl px-4 py-2 text-[0.8125rem] text-foreground outline-none w-64 focus:ring-2 focus:ring-primary/10 transition-all shadow-sm font-semibold">
               {datasets.map((d) => <option key={d.dataset_id} value={d.dataset_id}>{d.name}</option>)}
             </select>
           </div>
-          <div className="h-6 w-px bg-slate-700" />
+          <div className="h-8 w-px bg-border/50 hidden sm:block" />
           
-          <div className="flex items-center gap-2">
-            <label className="text-[0.8125rem] text-slate-400">Optimize for:</label>
-            <div className="flex items-center gap-1 bg-slate-800/50 rounded-lg p-0.5 border border-slate-700/50">
+          <div className="flex items-center gap-3">
+            <label className="text-[0.8125rem] text-muted-foreground font-bold uppercase tracking-wider">Metric:</label>
+            <div className="flex items-center gap-1.5 bg-muted/40 rounded-xl p-1 border border-border shadow-inner">
               <button
                 onClick={() => handleDimensionChange("cost")}
-                className={`px-3 py-1.5 rounded-md text-[0.8125rem] transition-all ${dimension === "cost"
-                  ? "bg-amber-600/20 text-amber-400 border border-amber-500/30"
-                  : "text-slate-400 hover:text-white border border-transparent"
+                className={`px-4 py-2 rounded-lg text-[0.8125rem] font-bold transition-all ${dimension === "cost"
+                  ? "bg-amber-500 text-white shadow-sm scale-[1.02]"
+                  : "text-muted-foreground hover:bg-muted"
                   }`}
               >
                 Cost
               </button>
               <button
                 onClick={() => handleDimensionChange("latency")}
-                className={`px-3 py-1.5 rounded-md text-[0.8125rem] transition-all ${dimension === "latency"
-                  ? "bg-blue-600/20 text-blue-400 border border-blue-500/30"
-                  : "text-slate-400 hover:text-white border border-transparent"
+                className={`px-4 py-2 rounded-lg text-[0.8125rem] font-bold transition-all ${dimension === "latency"
+                  ? "bg-primary text-primary-foreground shadow-sm scale-[1.02]"
+                  : "text-muted-foreground hover:bg-muted"
                   }`}
               >
                 Latency
@@ -141,14 +141,14 @@ export function ParetoPage() {
             </div>
           </div>
 
-          <div className="h-6 w-px bg-slate-700" />
+          <div className="h-8 w-px bg-border/50 hidden lg:block" />
 
-          <div className="flex items-center gap-1 bg-slate-800/50 rounded-lg p-0.5 border border-slate-700/50">
+          <div className="flex items-center gap-1.5 bg-muted/40 rounded-xl p-1 border border-border shadow-inner">
             <button
               onClick={() => setPivot("model")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[0.8125rem] transition-all ${pivot === "model"
-                ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/30"
-                : "text-slate-400 hover:text-white border border-transparent"
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[0.8125rem] font-bold transition-all ${pivot === "model"
+                ? "bg-primary text-primary-foreground shadow-sm scale-[1.02]"
+                : "text-muted-foreground hover:bg-muted"
                 }`}
             >
               <Target size={14} />
@@ -156,9 +156,9 @@ export function ParetoPage() {
             </button>
             <button
               onClick={() => setPivot("prompt")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[0.8125rem] transition-all ${pivot === "prompt"
-                ? "bg-indigo-600/20 text-indigo-400 border border-indigo-500/30"
-                : "text-slate-400 hover:text-white border border-transparent"
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[0.8125rem] font-bold transition-all ${pivot === "prompt"
+                ? "bg-primary text-primary-foreground shadow-sm scale-[1.02]"
+                : "text-muted-foreground hover:bg-muted"
                 }`}
             >
               <TrendingUp size={14} />
@@ -167,15 +167,15 @@ export function ParetoPage() {
           </div>
         </div>
 
-        {/* Pivot Description */}
-        <div className="mb-6 bg-slate-800/20 border border-slate-700/30 rounded-lg px-4 py-3">
+        {/* Description Box */}
+        <div className="mb-8 bg-primary/5 border border-primary/10 rounded-2xl px-5 py-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-500">
           {pivot === "model" ? (
-            <p className="text-[0.8125rem] text-slate-400">
-              <span className="text-indigo-400 font-medium">Model View:</span> Each point represents a unique <span className="text-white font-medium">model + prompt version</span> combination. Find which model delivers the best cost/accuracy tradeoff.
+            <p className="text-[0.8125rem] text-muted-foreground leading-relaxed">
+              <span className="text-primary font-bold uppercase tracking-tight mr-2">Model Landscape View</span> Each point represents a unique <span className="text-foreground font-bold">model + prompt version</span> combination. Find which configuration delivers the best efficiency.
             </p>
           ) : (
-            <p className="text-[0.8125rem] text-slate-400">
-              <span className="text-indigo-400 font-medium">Prompt View:</span> Each point represents a unique <span className="text-white font-medium">prompt version</span> evaluated across models. Find which prompt wording yields the best ROI.
+            <p className="text-[0.8125rem] text-muted-foreground leading-relaxed">
+              <span className="text-primary font-bold uppercase tracking-tight mr-2">Iterative Prompt View</span> Each point represents a unique <span className="text-foreground font-bold">prompt version</span> evaluated across multiple models. Track your engineering progress.
             </p>
           )}
         </div>
@@ -183,7 +183,7 @@ export function ParetoPage() {
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 className="animate-spin text-slate-500" /></div>
         ) : !data || data.jobs.length === 0 ? (
-          <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-8 text-center text-slate-500 text-sm">
+          <div className="bg-card border border-border rounded-2xl p-12 text-center text-muted-foreground text-[0.8125rem] font-medium shadow-sm">
             No completed evaluation jobs found for this dataset. Run evals to populate the Pareto frontier.
           </div>
         ) : (
@@ -196,37 +196,45 @@ export function ParetoPage() {
              >
                 <div className="h-[420px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1c2130" opacity={0.8} />
+                    <ComposedChart margin={{ top: 20, right: 30, bottom: 20, left: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border/40" vertical={false} />
                       <XAxis
                         type="number"
                         dataKey="xValue"
-                        name={dimension === "cost" ? "Cost/Correct" : "P50 Latency"}
-                        stroke="#94a3b8"
-                        fontSize={12}
+                        name={dimension === "cost" ? "Cost" : "Latency"}
+                        stroke="currentColor"
+                        className="text-muted-foreground font-medium"
+                        fontSize={11}
+                        axisLine={false}
+                        tickLine={false}
                         tickFormatter={(v) => dimension === "cost" ? `$${v.toFixed(3)}` : `${v}ms`}
+                        tick={{ dy: 10 }}
                       />
                       <YAxis
                         type="number"
                         dataKey="acc"
                         name="Accuracy"
                         unit="%"
-                        stroke="#94a3b8"
-                        fontSize={12}
+                        stroke="currentColor"
+                        className="text-muted-foreground font-medium"
+                        fontSize={11}
+                        axisLine={false}
+                        tickLine={false}
                         domain={[0, 100]}
+                        tick={{ dx: -10 }}
                       />
                       <Tooltip
-                        cursor={{ strokeDasharray: "3 3" }}
-                        contentStyle={{ backgroundColor: "#09090f", border: "1px solid #1c2130", borderRadius: "8px", fontSize: "12px" }}
+                        cursor={{ strokeDasharray: "3 3", stroke: "var(--primary)", strokeOpacity: 0.5 }}
+                        contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "12px", fontSize: "12px", boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)" }}
                         formatter={(value: any, name: string) => {
-                          if (name === "Cost/Correct") return [`$${Number(value).toFixed(4)}`, name];
-                          if (name === "P50 Latency") return [`${Number(value).toFixed(1)} ms`, name];
-                          return [`${Number(value).toFixed(1)}%`, name];
+                          if (name === "Cost") return [`$${Number(value).toFixed(4)}`, name];
+                          if (name === "Latency") return [`${Number(value).toFixed(1)} ms`, name];
+                          return [`${Number(value).toFixed(1)}%`, "Accuracy"];
                         }}
                         labelFormatter={(_, payload) => {
                           if (payload && payload.length > 0) {
                             const item = payload[0].payload;
-                            return `${item.name}${item.isKnee ? " ★ KNEE POINT" : ""}${item.isPareto ? " (Pareto)" : ""}`;
+                            return `${item.name}${item.isKnee ? " ★ RECOMMENDED" : ""}`;
                           }
                           return "";
                         }}
@@ -293,15 +301,15 @@ export function ParetoPage() {
               </ChartCard>
 
               {/* Legend by group */}
-              <div className="flex flex-wrap gap-4 px-2">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3 bg-muted/20 border border-border rounded-xl">
                 {groups.map((g) => (
-                  <div key={g.label} className="flex items-center gap-2 text-[0.75rem] text-slate-400">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: g.color }} />
-                    {g.label} <span className="text-slate-600">({g.count})</span>
+                  <div key={g.label} className="flex items-center gap-2 text-[0.7rem] text-muted-foreground uppercase font-black tracking-widest">
+                    <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: g.color }} />
+                    {g.label} <span className="opacity-40">({g.count})</span>
                   </div>
                 ))}
-                <div className="flex items-center gap-2 text-[0.75rem] text-emerald-400">
-                  <div className="w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-emerald-500/30" />
+                <div className="flex items-center gap-2 text-[0.7rem] text-emerald-600 uppercase font-black tracking-widest">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                   Knee Point
                 </div>
               </div>
@@ -311,55 +319,57 @@ export function ParetoPage() {
             <div className="space-y-6">
               {/* Knee Point Card */}
               {kneePoint && (
-                <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Zap size={16} className="text-emerald-400" />
-                    <h3 className="text-sm font-medium text-emerald-400">Knee Point — Best Balance</h3>
+                <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-6 shadow-sm ring-4 ring-emerald-500/5">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="bg-emerald-500/10 p-2 rounded-lg">
+                      <Zap size={20} className="text-emerald-500" />
+                    </div>
+                    <h3 className="text-sm font-black text-emerald-700 uppercase tracking-wide">Optimal Knee Point</h3>
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-[0.8125rem]">
-                      <span className="text-slate-400">{pivot === "model" ? "Model" : "Version"}</span>
-                      <span className="text-white font-medium">{pivot === "model" ? kneePoint.model : `v${kneePoint.version_id}`}</span>
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-[0.8125rem] py-1 border-b border-emerald-500/10">
+                      <span className="text-muted-foreground font-medium">{pivot === "model" ? "Model" : "Version"}</span>
+                      <span className="text-foreground font-black">{pivot === "model" ? kneePoint.model : `v${kneePoint.version_id}`}</span>
                     </div>
-                    <div className="flex justify-between text-[0.8125rem]">
-                      <span className="text-slate-400">{pivot === "model" ? "Version" : "Model"}</span>
-                      <span className="text-white font-medium">{pivot === "model" ? `v${kneePoint.version_id}` : kneePoint.model}</span>
+                    <div className="flex justify-between text-[0.8125rem] py-1 border-b border-emerald-500/10">
+                      <span className="text-muted-foreground font-medium">{pivot === "model" ? "Version" : "Model"}</span>
+                      <span className="text-foreground font-black">{pivot === "model" ? `v${kneePoint.version_id}` : kneePoint.model}</span>
                     </div>
-                    <div className="flex justify-between text-[0.8125rem]">
-                      <span className="text-slate-400">Accuracy</span>
-                      <span className="text-emerald-400 font-semibold">{kneePoint.acc.toFixed(1)}%</span>
+                    <div className="flex justify-between text-[1rem] py-2">
+                      <span className="text-muted-foreground font-bold">Accuracy</span>
+                      <span className="text-emerald-600 font-black">{kneePoint.acc.toFixed(1)}%</span>
                     </div>
-                    <div className="flex justify-between text-[0.8125rem]">
-                      <span className="text-slate-400">{dimension === "cost" ? "Cost/Correct" : "P50 Latency"}</span>
-                      <span className={`${dimension === "cost" ? "text-amber-400" : "text-blue-400"} font-semibold`}>
+                    <div className="flex justify-between text-[0.8125rem] py-2 bg-emerald-500/10 px-3 rounded-xl">
+                      <span className="text-emerald-700 font-bold">{dimension === "cost" ? "Cost Efficiency" : "P50 Latency"}</span>
+                      <span className={`${dimension === "cost" ? "text-amber-700" : "text-primary"} font-black`}>
                         {dimension === "cost" ? `$${kneePoint.xValue.toFixed(4)}` : `${kneePoint.xValue.toFixed(1)}ms`}
                       </span>
                     </div>
                   </div>
-                  <p className="text-[0.75rem] text-slate-500 mt-3 leading-relaxed">
-                    This is the point of diminishing returns. Spending more {dimension} than this yields marginal accuracy gains relative to the increase in complexity.
+                  <p className="text-[0.75rem] text-muted-foreground mt-4 leading-relaxed font-medium">
+                    Critical efficiency point identified. Higher accuracy configurations exist but require disproportionately more resources.
                   </p>
                 </div>
               )}
 
               {/* AI Recommendation */}
-              <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-6">
-                <h3 className="text-sm font-medium text-white mb-4 flex items-center gap-2">AI Recommendation <Badge variant="info">Beta</Badge></h3>
-                <div className="text-sm text-slate-300 mb-6 leading-relaxed">
-                  {data.recommendation || "Based on the frontier, you have clear tradeoffs between cost and accuracy."}
+              <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+                <h3 className="text-sm font-black text-foreground mb-4 flex items-center gap-2 uppercase tracking-widest">Frontier Insights <Badge variant="info">Beta</Badge></h3>
+                <div className="text-[0.875rem] text-muted-foreground mb-6 leading-relaxed font-medium">
+                  {data.recommendation || "System-generated analysis: The frontier exhibits a strong correlation between compute resources and reasoning accuracy."}
                 </div>
-                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Frontier {pivot === "model" ? "Models" : "Versions"}</h4>
+                <h4 className="text-[0.7rem] font-black text-muted-foreground uppercase tracking-[0.2em] mb-4">Pareto-Optimal Candidate List</h4>
                 <div className="space-y-3">
                   {paretoPoints.map((j: any) => (
-                    <div key={j.job_id} className={`p-3 rounded-lg flex items-center justify-between border ${j.isKnee ? "bg-emerald-500/10 border-emerald-500/20" : "bg-slate-800/50 border-slate-700/30"}`}>
+                    <div key={j.job_id} className={`p-4 rounded-2xl flex items-center justify-between border transition-all ${j.isKnee ? "bg-emerald-500/5 border-emerald-500/20 shadow-sm" : "bg-muted/30 border-border/50 hover:bg-muted/50"}`}>
                       <div>
-                        <div className="text-[0.8125rem] font-medium text-white flex items-center gap-2">
-                          {pivot === "model" ? j.model : `Version ${j.version_id}`}
-                          <span className="text-slate-500 text-xs font-mono">{pivot === "model" ? `v${j.version_id}` : j.model}</span>
-                          {j.isKnee && <Badge variant="success">Knee</Badge>}
+                        <div className="text-[0.8125rem] font-bold text-foreground flex items-center gap-2">
+                          {pivot === "model" ? j.model : `V${j.version_id}`}
+                          <span className="text-muted-foreground text-[0.75rem] font-mono opacity-60">{pivot === "model" ? `v${j.version_id}` : j.model}</span>
+                          {j.isKnee && <Badge variant="success" className="scale-75 origin-left">BEST</Badge>}
                         </div>
-                        <div className="text-[0.75rem] text-slate-400 mt-1">
-                          Acc: {j.acc.toFixed(1)}% · {dimension === "cost" ? "Cost" : "Lat"}: {dimension === "cost" ? `$${j.xValue.toFixed(4)}` : `${j.xValue.toFixed(1)}ms`}
+                        <div className="text-[0.7rem] text-muted-foreground mt-1 font-bold">
+                          ACC: <span className="text-foreground">{j.acc.toFixed(1)}%</span> · {dimension === "cost" ? "COST" : "LAT"}: <span className="text-foreground">{dimension === "cost" ? `$${j.xValue.toFixed(4)}` : `${j.xValue.toFixed(1)}ms`}</span>
                         </div>
                       </div>
                     </div>
@@ -368,21 +378,21 @@ export function ParetoPage() {
               </div>
 
               {/* Logic Explained */}
-              <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-xl p-6">
-                <h3 className="text-sm font-medium text-indigo-400 mb-4 flex items-center gap-2">
-                  <Loader2 size={16} /> Understanding the Frontier
+              <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6 shadow-sm">
+                <h3 className="text-sm font-black text-primary mb-4 flex items-center gap-2 uppercase tracking-widest">
+                  <TrendingUp size={16} /> Frontier Methodology
                 </h3>
-                <div className="space-y-4">
+                <div className="space-y-5">
                   <div>
-                    <h4 className="text-[0.8125rem] font-medium text-white mb-1">Pareto Optimality</h4>
-                    <p className="text-[0.75rem] text-slate-400 leading-relaxed">
-                      A configuration is "Pareto Optimal" if you cannot improve its accuracy without also increasing its {dimension}. These points form the "Frontier" line.
+                    <h4 className="text-[0.8125rem] font-black text-foreground mb-1.5 uppercase tracking-wide">Pareto Optimality</h4>
+                    <p className="text-[0.75rem] text-muted-foreground leading-relaxed font-medium">
+                      Configurations where accuracy cannot be improved without increasing {dimension}. These form the theoretical "efficient boundary."
                     </p>
                   </div>
                   <div>
-                    <h4 className="text-[0.8125rem] font-medium text-white mb-1">Diminishing Returns</h4>
-                    <p className="text-[0.75rem] text-slate-400 leading-relaxed">
-                      Points to the right of the Knee Point offer very small accuracy gains for massive increases in {dimension}. The Knee Point suggests where you get the most "bang for your buck."
+                    <h4 className="text-[0.8125rem] font-black text-foreground mb-1.5 uppercase tracking-wide">Law of Diminishing Returns</h4>
+                    <p className="text-[0.75rem] text-muted-foreground leading-relaxed font-medium">
+                      Points beyond the Knee offer marginal accuracy gains for exponentially higher {dimension}. The Knee Point represents maximum "accuracy-per-dollar."
                     </p>
                   </div>
                 </div>

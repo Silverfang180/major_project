@@ -102,49 +102,49 @@ export function EvalJobsPage() {
       <Topbar title="Eval Jobs" subtitle="Background evaluation processing" />
       <div className="p-6 space-y-6">
         <div className="flex justify-end">
-          <button onClick={openCreateModal} className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-[0.8125rem] rounded-lg transition-colors shadow-lg shadow-indigo-500/20">
+          <button 
+            onClick={openCreateModal} 
+            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-[0.8125rem] font-bold rounded-xl transition-all shadow-lg shadow-primary/20 active:scale-95"
+          >
             <Plus size={14} /> Create Eval Job
           </button>
         </div>
+
         {loading ? (
-          <div className="flex items-center justify-center py-12 gap-2 text-slate-400"><Loader2 size={20} className="animate-spin" /> Loading jobs...</div>
+          <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground font-medium animate-pulse">
+            <Loader2 size={20} className="animate-spin text-primary" /> Loading jobs...
+          </div>
         ) : (
-          <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl overflow-hidden">
+          <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
             <table className="w-full">
-              <thead className="sticky top-0 z-10 bg-slate-900 shadow-sm shadow-slate-950/50">
-                <tr className="border-b border-slate-700/50 text-slate-500 uppercase text-[0.6875rem] font-semibold tracking-wider">
+              <thead className="sticky top-0 z-10 bg-muted/50">
+                <tr className="border-b border-border text-muted-foreground uppercase text-[0.6875rem] font-bold tracking-wider">
                   {["Job ID", "Prompt", "Version", "Dataset", "Status", "Accuracy", "Created"].map((h) => (
-                    <th key={h} className="text-left px-4 py-3">{h}</th>
+                    <th key={h} className="text-left px-4 py-4">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {jobs.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12">
-                      <EmptyState
-                        icon={FlaskConical}
-                        heading="No Evaluation Jobs"
-                        subtext="You haven't run any evaluations yet. Create a job to compare prompt versions across your datasets."
-                        ctaLabel="Create Eval Job"
-                        ctaAction={openCreateModal}
-                      />
+                    <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+                      No evaluation jobs found.
                     </td>
                   </tr>
                 ) : jobs.map((job) => (
-                  <tr key={job.job_id} className="border-b border-slate-700/30 table-row-hover" onClick={() => job.status === "completed" && navigate(`/eval-analytics/${job.job_id}`)}>
-                    <td className="px-4 py-3 text-[0.8125rem] text-slate-300 font-mono">{job.job_id.slice(0, 8)}</td>
-                    <td className="px-4 py-3 text-[0.8125rem] text-indigo-400">{job.prompt_key || job.prompt_id.slice(0, 8)}</td>
-                    <td className="px-4 py-3 text-[0.8125rem] text-slate-300">{job.dataset_name || job.dataset_id.slice(0, 8)}</td>
+                  <tr key={job.job_id} className="border-b border-border/10 table-row-hover transition-colors" onClick={() => job.status === "completed" && navigate(`/eval-analytics/${job.job_id}`)}>
+                    <td className="px-4 py-3 text-[0.8125rem] text-muted-foreground font-mono">{job.job_id.slice(0, 8)}</td>
+                    <td className="px-4 py-3 text-[0.8125rem] text-primary font-bold">{job.prompt_key || job.prompt_id.slice(0, 8)}</td>
+                    <td className="px-4 py-3 text-[0.8125rem] text-foreground font-medium">{job.dataset_name || job.dataset_id.slice(0, 8)}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1 flex-wrap">
                         {job.evaluators?.map((e) => <Badge key={e} variant="info">{e}</Badge>)}
                       </div>
                     </td>
                     <td className="px-4 py-3"><Badge variant={statusVariant[job.status] || "neutral"}>{job.status}</Badge></td>
-                    <td className="px-4 py-3 text-[0.8125rem] text-slate-300">{job.summary?.accuracy != null ? `${(job.summary.accuracy * 100).toFixed(1)}%` : "—"}</td>
-                    <td className="px-4 py-3 text-[0.8125rem] text-slate-300">{job.summary?.total_cost != null ? `$${job.summary.total_cost.toFixed(4)}` : "—"}</td>
-                    <td className="px-4 py-3 text-[0.8125rem] text-slate-500">{new Date(job.created_at).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-[0.8125rem] text-foreground font-semibold">{job.summary?.accuracy != null ? `${(job.summary.accuracy * 100).toFixed(1)}%` : "—"}</td>
+                    <td className="px-4 py-3 text-[0.8125rem] text-amber-500 font-medium font-mono">{job.summary?.total_cost != null ? `$${job.summary.total_cost.toFixed(4)}` : "—"}</td>
+                    <td className="px-4 py-3 text-[0.8125rem] text-muted-foreground">{new Date(job.created_at).toLocaleDateString()}</td>
                   </tr>
                 ))}
               </tbody>
@@ -154,35 +154,35 @@ export function EvalJobsPage() {
       </div>
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Create Eval Job"
         footer={<>
-          <button onClick={() => setCreateOpen(false)} className="px-4 py-2 text-[0.8125rem] text-slate-400 border border-slate-600 rounded-lg hover:bg-slate-800">Cancel</button>
-          <button onClick={handleCreate} className="px-4 py-2 text-[0.8125rem] bg-indigo-600 text-white rounded-lg hover:bg-indigo-500">Create</button>
+          <button onClick={() => setCreateOpen(false)} className="px-4 py-2 text-[0.8125rem] text-muted-foreground bg-muted border border-border rounded-xl hover:bg-muted-hover transition-all font-bold">Cancel</button>
+          <button onClick={handleCreate} className="px-6 py-2 text-[0.8125rem] bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all font-bold">Create Job</button>
         </>}>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-[0.8125rem] text-slate-400 mb-1.5">Prompt</label>
-            <select value={selectedPrompt} onChange={(e) => handlePromptChange(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-[0.8125rem] text-white outline-none">
+        <div className="space-y-5">
+          <div className="space-y-1.5">
+            <label className="block text-[0.7rem] text-muted-foreground uppercase font-bold tracking-wider">Prompt</label>
+            <select value={selectedPrompt} onChange={(e) => handlePromptChange(e.target.value)} className="w-full bg-background border border-border rounded-xl px-4 py-3 text-[0.8125rem] text-foreground outline-none focus:ring-2 focus:ring-primary/10 transition-all shadow-sm">
               {prompts.map((p) => <option key={p.prompt_id} value={p.prompt_id}>{p.key} — {p.title}</option>)}
             </select>
           </div>
-          <div>
-            <label className="block text-[0.8125rem] text-slate-400 mb-1.5">Version</label>
-            <select value={selectedVersion} onChange={(e) => setSelectedVersion(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-[0.8125rem] text-white outline-none">
+          <div className="space-y-1.5">
+            <label className="block text-[0.7rem] text-muted-foreground uppercase font-bold tracking-wider">Version</label>
+            <select value={selectedVersion} onChange={(e) => setSelectedVersion(e.target.value)} className="w-full bg-background border border-border rounded-xl px-4 py-3 text-[0.8125rem] text-foreground outline-none focus:ring-2 focus:ring-primary/10 transition-all shadow-sm">
               {versions.map((v) => <option key={v.version_id} value={String(v.version_id)}>#{v.ordinal} (ID: {v.version_id})</option>)}
             </select>
           </div>
-          <div>
-            <label className="block text-[0.8125rem] text-slate-400 mb-1.5">Dataset</label>
-            <select value={selectedDataset} onChange={(e) => setSelectedDataset(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-[0.8125rem] text-white outline-none">
+          <div className="space-y-1.5">
+            <label className="block text-[0.7rem] text-muted-foreground uppercase font-bold tracking-wider">Dataset</label>
+            <select value={selectedDataset} onChange={(e) => setSelectedDataset(e.target.value)} className="w-full bg-background border border-border rounded-xl px-4 py-3 text-[0.8125rem] text-foreground outline-none focus:ring-2 focus:ring-primary/10 transition-all shadow-sm">
               {datasets.map((d) => <option key={d.dataset_id} value={d.dataset_id}>{d.name}</option>)}
             </select>
           </div>
-          <div>
-            <label className="block text-[0.8125rem] text-slate-400 mb-1.5">Evaluators</label>
-            <div className="space-y-2">
+          <div className="space-y-2.5">
+            <label className="block text-[0.7rem] text-muted-foreground uppercase font-bold tracking-wider">Evaluators</label>
+            <div className="grid grid-cols-1 gap-2.5">
               {["exact_match", "llm_judge", "confidence_calibration"].map((e) => (
-                <label key={e} className="flex items-center gap-2 text-[0.8125rem] text-slate-300 cursor-pointer">
-                  <input type="checkbox" checked={selectedEvaluators.includes(e)} onChange={() => toggleEvaluator(e)} className="rounded border-slate-600 bg-slate-800 text-indigo-600" />
-                  {e.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                <label key={e} className="flex items-center gap-3 p-3 bg-muted/30 border border-border rounded-xl cursor-pointer hover:bg-muted/50 transition-all group">
+                  <input type="checkbox" checked={selectedEvaluators.includes(e)} onChange={() => toggleEvaluator(e)} className="w-4 h-4 rounded border-border bg-background text-primary focus:ring-primary/20 transition-all" />
+                  <span className="text-[0.8125rem] text-foreground font-medium group-hover:text-primary transition-colors">{e.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</span>
                 </label>
               ))}
             </div>

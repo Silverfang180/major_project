@@ -11,6 +11,15 @@ const themeOptions = [
   { id: "light", label: "Light", icon: Sun, description: "Clean bright mode" },
 ];
 
+const DEFAULT_PROVIDERS = [
+  { name: "OpenAI", key: "", status: "not configured" },
+  { name: "Anthropic", key: "", status: "not configured" },
+  { name: "Google Gemini", key: "", status: "not configured" },
+  { name: "Mistral AI", key: "", status: "not configured" },
+  { name: "Cohere", key: "", status: "not configured" },
+  { name: "DeepSeek", key: "", status: "not configured" },
+];
+
 export function SettingsPage() {
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem("chronicle-theme") || "matte";
@@ -28,7 +37,22 @@ export function SettingsPage() {
 
   useEffect(() => {
     api.getPricing().then(setPricingData).finally(() => setLoadingPricing(false));
-    api.getApiKeys().then(setApiKeys).finally(() => setLoadingKeys(false));
+    
+    setLoadingKeys(true);
+    api.getApiKeys().then(keys => {
+      // Merge default providers with fetched keys
+      const merged = DEFAULT_PROVIDERS.map(def => {
+        const found = keys.find(k => k.name === def.name);
+        return found || def;
+      });
+      // Add any custom providers from API that aren't in defaults
+      keys.forEach(k => {
+        if (!DEFAULT_PROVIDERS.find(d => d.name === k.name)) {
+          merged.push(k);
+        }
+      });
+      setApiKeys(merged);
+    }).finally(() => setLoadingKeys(false));
   }, []);
 
   async function handleUpdateKey(name: string) {
@@ -38,14 +62,23 @@ export function SettingsPage() {
       await api.updateApiKey(name, newKey);
       toast.success(`${name} API Key updated securely.`);
       setEditKeys((prev) => ({ ...prev, [name]: "" }));
-      // Refetch keys to get updated masked version
       const updated = await api.getApiKeys();
-      setApiKeys(updated);
+      // Re-merge after update
+      const mergedLabels = [...DEFAULT_PROVIDERS];
+      const merged = mergedLabels.map(def => {
+        const found = updated.find(k => k.name === def.name);
+        return found || def;
+      });
+      updated.forEach(k => {
+        if (!mergedLabels.find(d => d.name === k.name)) {
+          merged.push(k);
+        }
+      });
+      setApiKeys(merged);
     } catch (e: any) {
       toast.error(`Failed to update key: ${e.message}`);
     }
   }
-
 
   // Apply theme to the DOM
   useEffect(() => {
@@ -53,159 +86,177 @@ export function SettingsPage() {
     localStorage.setItem("chronicle-theme", theme);
   }, [theme]);
 
-  // Save env to localstorage
-  useEffect(() => {
-    localStorage.setItem("chronicle-env", env);
-  }, [env]);
+  // Handle Environment Change with Quick Reload
+  const handleEnvChange = (newEnv: string) => {
+    setEnv(newEnv);
+    localStorage.setItem("chronicle-env", newEnv);
+    toast.info(`Switching to ${newEnv.toUpperCase()}...`, {
+      description: "Reloading to apply changes strictly.",
+      duration: 1500
+    });
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
+  };
 
   function applyTheme(t: string) {
     const root = document.documentElement;
     root.classList.remove("light", "dark", "matte");
     if (t === "light") root.classList.add("light");
     else if (t === "dark") root.classList.add("dark");
-    else root.classList.add("matte"); // Default to matte
+    else root.classList.add("matte");
   }
 
   return (
-    <div>
-      <Topbar title="Settings" subtitle="Application configuration" />
-      <div className="p-6 space-y-8 max-w-4xl">
-        {/* Theme */}
-        <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-6">
-          <h3 className="text-white text-[0.9375rem] mb-4">Theme</h3>
-          <div className="grid grid-cols-3 gap-3">
-            {themeOptions.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTheme(t.id)}
-                className={`flex flex-col items-center gap-2 p-4 rounded-xl text-[0.8125rem] border transition-all ${
-                  theme === t.id
-                    ? "border-indigo-500 bg-indigo-500/10 text-indigo-400 shadow-lg shadow-indigo-500/10"
-                    : "border-slate-700 text-slate-400 hover:border-slate-600 hover:bg-slate-800/50"
-                }`}
-              >
-                <t.icon size={20} />
-                <div className="flex items-center gap-1.5">
-                  {theme === t.id && <Check size={14} />}
-                  {t.label}
-                </div>
-                <span className="text-[0.6875rem] text-slate-500">{t.description}</span>
-              </button>
-            ))}
+    <div className="min-h-screen bg-background transition-colors duration-300">
+      <Topbar title="Settings" subtitle="Application configuration & environment management" />
+      <div className="p-6 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        
+        {/* Theme Section */}
+        <section className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+          <div className="p-6 sm:p-8">
+            <div className="mb-6">
+              <h3 className="text-foreground text-[1.125rem] font-semibold mb-1">Display Theme</h3>
+              <p className="text-muted-foreground text-[0.8125rem]">
+                Select a visual style that matches your working environment. 
+                Chronicle themes are optimized for "PromptOps" workflows to reduce eye strain.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {themeOptions.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setTheme(t.id)}
+                  className={`relative flex flex-col items-center gap-3 p-5 rounded-xl text-[0.8125rem] border transition-all ${
+                    theme === t.id
+                      ? "border-primary bg-primary/5 text-primary shadow-sm"
+                      : "border-border text-muted-foreground hover:border-border-hover hover:bg-muted/50"
+                  }`}
+                >
+                  <div className={`p-2 rounded-lg ${theme === t.id ? "bg-primary/10" : "bg-muted"}`}>
+                    <t.icon size={22} />
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <span className="font-semibold text-foreground">{t.label}</span>
+                    <span className="text-[0.6875rem] text-muted-foreground mt-1 text-center">{t.description}</span>
+                  </div>
+                  {theme === t.id && (
+                    <div className="absolute top-3 right-3 text-primary">
+                      <Check size={16} />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        </section>
 
-        {/* Environment */}
-        <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-6">
-          <h3 className="text-white text-[0.9375rem] mb-4">Environment</h3>
-          <div className="flex gap-3">
-            {["development", "staging", "production"].map((e) => (
-              <button
-                key={e}
-                onClick={() => setEnv(e)}
-                className={`px-4 py-2 rounded-lg text-[0.8125rem] border transition-all ${
-                  env === e
-                    ? "border-indigo-500 bg-indigo-500/10 text-indigo-400"
-                    : "border-slate-700 text-slate-400 hover:border-slate-600"
-                }`}
-              >
-                {e.charAt(0).toUpperCase() + e.slice(1)}
-              </button>
-            ))}
-          </div>
-          <div className="mt-3">
-            <Badge variant={env === "production" ? "success" : env === "staging" ? "warning" : "info"}>
-              {env.toUpperCase()}
-            </Badge>
-          </div>
-        </div>
-
-        {/* API Keys */}
-        <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-6">
-          <h3 className="text-white text-[0.9375rem] mb-4">API Keys</h3>
-          <div className="space-y-3">
-            {loadingKeys ? (
-              <div className="py-4 flex items-center gap-2 justify-center text-slate-500 text-sm">
-                <Loader2 size={16} className="animate-spin" /> Loading configuration...
+        {/* Environment Section */}
+        <section className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+          <div className="p-6 sm:p-8">
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="text-foreground text-[1.125rem] font-semibold">Environment</h3>
+                <Badge variant={env === "production" ? "success" : env === "staging" ? "warning" : "info"}>
+                  {env.toUpperCase()}
+                </Badge>
               </div>
-            ) : (
-              apiKeys.map((apiItem) => (
-                <div key={apiItem.name} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-slate-800/50 rounded-lg gap-3">
-                  <div className="flex items-center gap-3 w-full sm:w-auto">
-                    <span className="text-[0.8125rem] text-white w-24 shrink-0">{apiItem.name}</span>
-                    <div className="relative flex-1 sm:w-64">
-                      <input
-                        type={showKeys[apiItem.name] ? "text" : "password"}
-                        className="w-full text-[0.75rem] text-slate-300 font-mono bg-slate-900 border border-slate-700 focus:border-indigo-500 rounded-md px-3 py-1.5 outline-none"
-                        placeholder={apiItem.key || "Paste new API key here..."}
-                        value={editKeys[apiItem.name] !== undefined ? editKeys[apiItem.name] : ""}
-                        onChange={(e) => setEditKeys({ ...editKeys, [apiItem.name]: e.target.value })}
-                        onKeyDown={(e) => e.key === "Enter" && handleUpdateKey(apiItem.name)}
-                      />
-                      <button
-                        onClick={() => setShowKeys((p) => ({ ...p, [apiItem.name]: !p[apiItem.name] }))}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
-                        title={showKeys[apiItem.name] ? "Hide key" : "Show key"}
-                      >
-                        {showKeys[apiItem.name] ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
+              <p className="text-muted-foreground text-[0.8125rem]">
+                Environments strictly separate your prompt versions and execution contexts. 
+                <span className="text-primary font-medium ml-1">Changes here will reload the app to ensure data isolation.</span>
+              </p>
+            </div>
+            
+            <div className="flex flex-wrap gap-3">
+              {[
+                { id: "development", label: "Development", desc: "Local testing & iterations" },
+                { id: "staging", label: "Staging", desc: "Pre-production validation" },
+                { id: "production", label: "Production", desc: "Live prompt deployments" }
+              ].map((e) => (
+                <button
+                  key={e.id}
+                  onClick={() => handleEnvChange(e.id)}
+                  className={`flex-1 min-w-[140px] px-5 py-4 rounded-xl border text-left transition-all ${
+                    env === e.id
+                      ? "border-primary bg-primary/5 shadow-sm"
+                      : "border-border text-muted-foreground hover:border-border-hover hover:bg-muted/50"
+                  }`}
+                >
+                  <p className={`text-[0.875rem] font-bold mb-1 ${env === e.id ? "text-primary" : "text-foreground"}`}>
+                    {e.label}
+                  </p>
+                  <p className="text-[0.75rem] text-muted-foreground leading-tight">{e.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* API Keys Section */}
+        <section className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+          <div className="p-6 sm:p-8">
+            <div className="mb-6">
+              <h3 className="text-foreground text-[1.125rem] font-semibold mb-1">Model Provider Keys</h3>
+              <p className="text-muted-foreground text-[0.8125rem]">
+                Chronicle uses these keys to execute and evaluate prompts across different models (OpenAI, Anthropic, etc.). 
+                Keys are encrypted at rest and never returned raw in UI once saved.
+              </p>
+            </div>
+            
+            <div className="space-y-4">
+              {loadingKeys ? (
+                <div className="py-8 text-center text-muted-foreground text-sm flex flex-col items-center gap-2">
+                  <Loader2 size={24} className="animate-spin text-primary" />
+                  <span>Fetching secure configuration...</span>
+                </div>
+              ) : (
+                apiKeys.map((apiItem) => (
+                  <div key={apiItem.name} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-background border border-border rounded-xl transition-all hover:border-primary/30 group shadow-sm hover:shadow-md">
+                    <div className="flex flex-col gap-1 mb-3 sm:mb-0">
+                      <span className="text-[0.875rem] font-bold text-foreground">{apiItem.name}</span>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={apiItem.status === "active" ? "success" : "neutral"}>
+                          {apiItem.status}
+                        </Badge>
+                        <span className="text-[0.6875rem] text-muted-foreground italic font-medium">
+                          {apiItem.status === "active" ? "Connected" : "Action Required"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="relative">
+                        <input
+                          type={showKeys[apiItem.name] ? "text" : "password"}
+                          className="w-full sm:w-64 text-[0.8125rem] text-foreground font-mono bg-background border border-border focus:border-primary rounded-lg px-4 py-2 outline-none transition-all pr-10"
+                          placeholder={apiItem.status === "active" ? "••••••••••••••••" : "Enter API key..."}
+                          value={editKeys[apiItem.name] || ""}
+                          onChange={(e) => setEditKeys({ ...editKeys, [apiItem.name]: e.target.value })}
+                          onKeyDown={(e) => e.key === "Enter" && handleUpdateKey(apiItem.name)}
+                        />
+                        <button
+                          onClick={() => setShowKeys((p) => ({ ...p, [apiItem.name]: !p[apiItem.name] }))}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 transition-colors"
+                        >
+                          {showKeys[apiItem.name] ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      </div>
+                      
+                      {editKeys[apiItem.name] && (
+                        <button
+                          onClick={() => handleUpdateKey(apiItem.name)}
+                          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-[0.8125rem] font-bold hover:bg-primary-hover active:scale-95 transition-all shadow-sm"
+                        >
+                          <Save size={14} /> <span>Save</span>
+                        </button>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 self-end sm:self-auto">
-                    {editKeys[apiItem.name] && editKeys[apiItem.name].trim().length > 0 && (
-                      <button
-                        onClick={() => handleUpdateKey(apiItem.name)}
-                        className="flex items-center gap-1.5 text-[0.6875rem] bg-indigo-500 hover:bg-indigo-600 text-white px-2 py-1.5 rounded-md transition-colors"
-                      >
-                        <Save size={12} /> Save
-                      </button>
-                    )}
-                    <Badge variant={apiItem.status === "active" ? "success" : "neutral"}>
-                      {apiItem.status}
-                    </Badge>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Pricing */}
-        <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-6">
-          <h3 className="text-white text-[0.9375rem] mb-4">Model Pricing</h3>
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-700/50">
-                {["Model", "Provider", "Input Price", "Output Price"].map((h) => (
-                  <th key={h} className="text-left text-[0.75rem] text-slate-500 px-3 py-2">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {loadingPricing ? (
-                <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-slate-500 text-[0.8125rem]">
-                    <Loader2 size={16} className="animate-spin inline mr-2" />
-                    Loading current pricing...
-                  </td>
-                </tr>
-              ) : pricingData.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-slate-500 text-[0.8125rem]">No pricing data available.</td>
-                </tr>
-              ) : (
-                pricingData.map((row) => (
-                  <tr key={row.model} className="border-b border-slate-700/30">
-                    <td className="px-3 py-2.5 text-[0.8125rem] text-white">{row.model}</td>
-                    <td className="px-3 py-2.5"><Badge variant="info">{row.provider}</Badge></td>
-                    <td className="px-3 py-2.5 text-[0.8125rem] text-slate-300">{row.inputPrice}</td>
-                    <td className="px-3 py-2.5 text-[0.8125rem] text-slate-300">{row.outputPrice}</td>
-                  </tr>
                 ))
               )}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   );

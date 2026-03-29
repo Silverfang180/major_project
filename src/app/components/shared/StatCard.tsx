@@ -10,26 +10,26 @@ interface StatCardProps {
   onClick?: () => void;
 }
 
-export function StatCard({ title, value, subtitle, icon, trend, valueColor = "text-white", onClick }: StatCardProps) {
+export function StatCard({ title, value, subtitle, icon, trend, valueColor = "text-foreground", onClick }: StatCardProps) {
   return (
     <div 
       onClick={onClick}
-      className={`bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 shadow-lg shadow-indigo-500/5 ${
-        onClick ? "cursor-pointer hover:bg-slate-800/80 hover:border-indigo-500/50 transition-colors" : ""
+      className={`bg-card border border-border rounded-xl p-5 shadow-sm transition-all duration-300 ${
+        onClick ? "cursor-pointer hover:bg-muted/50 hover:border-primary/50" : ""
       }`}
     >
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-slate-400 text-[0.8125rem] mb-1">{title}</p>
-          <p className={`text-[1.5rem] tracking-tight ${valueColor}`}>{value}</p>
-          {subtitle && <p className="text-slate-500 text-[0.75rem] mt-1">{subtitle}</p>}
+          <p className="text-muted-foreground text-[0.8125rem] font-medium mb-1">{title}</p>
+          <p className={`text-[1.5rem] font-bold tracking-tight ${valueColor}`}>{value}</p>
+          {subtitle && <p className="text-muted-foreground/60 text-[0.75rem] mt-1 italic">{subtitle}</p>}
           {trend && (
-            <p className={`text-[0.75rem] mt-1 ${trend.positive ? "text-emerald-400" : "text-rose-400"}`}>
-              {trend.positive ? "+" : ""}{trend.value}
+            <p className={`text-[0.75rem] mt-1 font-semibold ${trend.positive ? "text-emerald-500" : "text-rose-500"}`}>
+              {trend.positive ? "↑" : "↓"} {trend.value} <span className="text-muted-foreground/40 font-normal">vs last month</span>
             </p>
           )}
         </div>
-        {icon && <div className="text-indigo-400 bg-indigo-500/10 p-2 rounded-lg">{icon}</div>}
+        {icon && <div className="text-primary bg-primary/10 p-2.5 rounded-xl shadow-inner shadow-primary/5">{icon}</div>}
       </div>
     </div>
   );
