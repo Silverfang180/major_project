@@ -1,10 +1,12 @@
 from sqlalchemy import Column, Text, Integer, BigInteger, ForeignKey, TIMESTAMP, JSON, CheckConstraint, Enum, Float, Boolean, UniqueConstraint, Index
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 import uuid
 import enum
 from db import Base
-from datetime import datetime
+from datetime import datetime, timezone
 
 class JobStatus(str, enum.Enum):
     pending = "pending"
@@ -21,7 +23,8 @@ class Dataset(Base):
     description = Column(Text, nullable=True)
     task_type = Column(Text, nullable=False)
     created_by = Column(Text, nullable=False)
-    created_at = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
+    created_at = Column(TIMESTAMP, nullable=False, default=func.now())
+    deleted_at = Column(TIMESTAMP, nullable=True)
 
     __table_args__ = (
         CheckConstraint("task_type IN ('classification', 'generation', 'qa')", name="task_type_check"),
@@ -33,12 +36,13 @@ class Dataset(Base):
 class DatasetExample(Base):
     __tablename__ = "dataset_examples"
 
-    example_id = Column(BigInteger, primary_key=True, autoincrement=True)
+    example_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     dataset_id = Column(UUID(as_uuid=True), ForeignKey("datasets.dataset_id", ondelete="CASCADE"), nullable=False, index=True)
     input_vars = Column(JSON, nullable=False)
     expected_output = Column(Text, nullable=False)
     source_tag = Column(Text, nullable=True)
-    created_at = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
+    created_at = Column(TIMESTAMP, nullable=False, default=func.now())
+    deleted_at = Column(TIMESTAMP, nullable=True)
 
     dataset = relationship("Dataset", back_populates="examples")
 
@@ -49,12 +53,13 @@ class EvalJob(Base):
     prompt_id = Column(UUID(as_uuid=True), ForeignKey("prompts.prompt_id"), nullable=False)
     version_id = Column(Integer, ForeignKey("prompt_versions.version_id"), nullable=False)
     dataset_id = Column(UUID(as_uuid=True), ForeignKey("datasets.dataset_id"), nullable=False)
-    status = Column(Text, nullable=False, default=JobStatus.pending.value)
+    status = Column(postgresql.ENUM('pending', 'running', 'completed', 'failed', name='jobstatus'), nullable=False, default=JobStatus.pending.value)
     evaluators = Column(JSON, nullable=False)
     created_by = Column(Text, nullable=False)
-    created_at = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
+    created_at = Column(TIMESTAMP, nullable=False, default=func.now())
     started_at = Column(TIMESTAMP, nullable=True)
     completed_at = Column(TIMESTAMP, nullable=True)
+    deleted_at = Column(TIMESTAMP, nullable=True)
 
 
 class EvalResult(Base):
@@ -62,7 +67,7 @@ class EvalResult(Base):
 
     result_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     job_id = Column(UUID(as_uuid=True), ForeignKey("eval_jobs.job_id", ondelete="CASCADE"), nullable=False, index=True)
-    example_id = Column(BigInteger, ForeignKey("dataset_examples.example_id"), nullable=False)
+    example_id = Column(UUID(as_uuid=True), ForeignKey("dataset_examples.example_id"), nullable=False)
     run_id = Column(Integer, ForeignKey("runs.run_id"), nullable=True)
     raw_output = Column(Text, nullable=True)
     expected_output = Column(Text, nullable=False)
@@ -71,7 +76,7 @@ class EvalResult(Base):
     evaluator_score = Column(Float, nullable=True)
     latency_ms = Column(Integer, nullable=True)
     cost_usd = Column(Float, nullable=True)
-    created_at = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
+    created_at = Column(TIMESTAMP, nullable=False, default=func.now())
 
 
 class EvalJobMeta(Base):
@@ -85,7 +90,7 @@ class EvalJobMeta(Base):
         unique=True,
     )
     calibration_metrics = Column(JSON, nullable=True)
-    created_at = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
+    created_at = Column(TIMESTAMP, nullable=False, default=func.now())
     updated_at = Column(TIMESTAMP, nullable=True)
 
 
@@ -120,7 +125,7 @@ class EvalSummary(Base):
     overconfidence_rate = Column(Float, nullable=True)
     underconfidence_rate = Column(Float, nullable=True)
 
-    computed_at = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
+    computed_at = Column(TIMESTAMP, nullable=False, default=func.now())
 
     __table_args__ = (
         Index("ix_eval_summaries_dataset_id", "dataset_id"),

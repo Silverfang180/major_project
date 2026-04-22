@@ -1,0 +1,24 @@
+
+┌────── System KPIs ───────┐
+│ Total Requests: 0        │
+│ Total Errors:   0        │
+│ Error Rate:     0%       │
+│ Avg Latency:    112.57ms │
+└──────────────────────────┘
+
+  Prometheus Counters
+                                      ╷           ╷                      
+  Metric Name                         │ Type      │             Samples  
+╶─────────────────────────────────────┼───────────┼─────────────────────╴
+  python_gc_objects_collected         │ counter   │ 39445 (+2 variants)  
+  python_gc_objects_uncollectable     │ counter   │     0 (+2 variants)  
+  python_gc_collections               │ counter   │   421 (+2 variants)  
+  python_info                         │ gauge     │                   1  
+  http_requests                       │ counter   │  8.0 (+47 variants)  
+  http_request_size_bytes             │ summary   │  8.0 (+56 variants)  
+  http_response_size_bytes            │ summary   │  8.0 (+56 variants)  
+  http_request_duration_highr_seconds │ histogram │  7.0 (+24 variants)  
+  http_request_duration_seconds       │ histogram │ 3.0 (+160 variants)  
+                                      ╵           ╵                      
+  (Showing subset of total metrics)
+

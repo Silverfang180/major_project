@@ -16,6 +16,7 @@ class DatasetResponse(BaseModel):
     task_type: str
     created_by: str
     created_at: datetime
+    deleted_at: Optional[datetime] = None
     example_count: int
 
     class Config:
@@ -27,7 +28,7 @@ class ExampleCreate(BaseModel):
     source_tag: Optional[str] = None
 
 class ExampleResponse(BaseModel):
-    example_id: int
+    example_id: UUID
     dataset_id: UUID
     input_vars: Dict[str, Any]
     expected_output: str
@@ -65,6 +66,15 @@ class EvalJobCreate(BaseModel):
                 raise ValueError(f"Invalid evaluator: {item}")
         return v
 
+class JobSummaryResponse(BaseModel):
+    accuracy: Optional[float] = None
+    mean_evaluator_score: Optional[float] = None
+    total_cost_usd: Optional[float] = None
+    mean_latency_ms: Optional[float] = None
+
+    class Config:
+        from_attributes = True
+
 class EvalJobResponse(BaseModel):
     job_id: UUID
     prompt_id: UUID
@@ -76,6 +86,7 @@ class EvalJobResponse(BaseModel):
     created_at: datetime
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
+    summary: Optional[JobSummaryResponse] = None
 
     class Config:
         from_attributes = True

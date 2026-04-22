@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Chronicle — Data Flow</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #020617; /* Deep Slate */
+    --text: #f8fafc;
+    --muted: #64748b;
+    --accent: #38bdf8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* Canvas Animation */
+  #waves {
+    position: fixed; right: 0; top: 0; width: 60%; height: 100%; z-index: 0;
+  }
+
+  /* Left Auth Panel */
+  .auth-panel {
+    position: relative; z-index: 10;
+    width: 40%; min-width: 400px;
+    background: rgba(2, 6, 23, 0.85);
+    backdrop-filter: blur(20px);
+    border-right: 1px solid rgba(255,255,255,0.05);
+    display: flex; flex-direction: column;
+    justify-content: center; padding: 4rem;
+    box-shadow: 20px 0 50px rgba(0,0,0,0.5);
+  }
+
+  .logo { font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; font-weight: 700; color: var(--accent); margin-bottom: 3rem; letter-spacing: -0.5px;}
+
+  h1 { font-size: 2.2rem; font-weight: 600; margin-bottom: 0.5rem; letter-spacing: -0.03em; }
+  p { color: var(--muted); font-size: 0.95rem; margin-bottom: 2.5rem; line-height: 1.6; }
+
+  .input-group { margin-bottom: 1.5rem; }
+  .input-group label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 1px; }
+  .input-group input {
+    width: 100%; padding: 1rem;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px; color: #fff; font-size: 1rem;
+    transition: all 0.3s;
+  }
+  .input-group input:focus { outline: none; border-color: var(--accent); background: rgba(56, 189, 248, 0.05); }
+
+  .submit-btn {
+    width: 100%; padding: 1rem; margin-top: 1rem;
+    background: #fff; color: #000;
+    border: none; border-radius: 8px;
+    font-size: 1rem; font-weight: 600; cursor: pointer;
+    transition: transform 0.2s, background 0.2s;
+  }
+  .submit-btn:hover { background: #e2e8f0; transform: translateY(-2px); }
+
+  @media (max-width: 900px) {
+    .auth-panel { width: 100%; min-width: 100%; padding: 2rem; border-right: none; }
+    #waves { width: 100%; opacity: 0.3; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Left Panel -->
+<div class="auth-panel">
+  <div class="logo">c/major_project</div>
+  <h1>Welcome back.</h1>
+  <p>Sign in to access your data models and deployment infrastructure.</p>
+
+  <form onsubmit="event.preventDefault();">
+    <div class="input-group">
+      <label>Email Address</label>
+      <input type="email" placeholder="hello@example.com" required/>
+    </div>
+    <div class="input-group">
+      <label>Password</label>
+      <input type="password" placeholder="••••••••" required/>
+    </div>
+    <button type="submit" class="submit-btn">Sign In</button>
+  </form>
+</div>
+
+<!-- Right Canvas -->
+<canvas id="waves"></canvas>
+
+<script>
+  // Topographical Flowing Waves
+  const canvas = document.getElementById('waves');
+  const ctx = canvas.getContext('2d');
+  let w, h;
+  let time = 0;
+
+  function resize() {
+    w = canvas.width = window.innerWidth * (window.innerWidth > 900 ? 0.6 : 1);
+    h = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function draw() {
+    // Smooth clear with trail effect
+    ctx.fillStyle = 'rgba(2, 6, 23, 0.1)';
+    ctx.fillRect(0, 0, w, h);
+
+    const lines = 25; // Number of horizontal waves
+    const amplitude = 60; // Wave height
+    const frequency = 0.003; // Wave tightness
+
+    ctx.lineWidth = 1;
+
+    for (let i = 0; i < lines; i++) {
+      ctx.beginPath();
+      
+      // Calculate a color gradient from purple to cyan based on line depth
+      const progress = i / lines;
+      const r = Math.floor(139 * (1 - progress) + 56 * progress);
+      const g = Math.floor(92 * (1 - progress) + 189 * progress);
+      const b = Math.floor(246 * (1 - progress) + 248 * progress);
+      
+      ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${0.1 + (progress * 0.4)})`;
+
+      for (let x = 0; x <= w; x += 10) {
+        // Complex math to create 3D looking rolling terrain
+        const yOffset = i * (h / lines);
+        const noise = Math.sin(x * frequency + time + i * 0.2) * amplitude;
+        const noise2 = Math.cos(x * frequency * 0.5 - time * 0.5 + i * 0.1) * (amplitude * 0.5);
+        
+        const y = yOffset + noise + noise2;
+
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+
+    time += 0.015; // Speed of the waves
+    requestAnimationFrame(draw);
+  }
+  draw();
+</script>
+</body>
+</html>

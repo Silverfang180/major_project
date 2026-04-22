@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chronicle — Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #09090b;
+      --card-bg: rgba(18, 18, 20, 0.65);
+      --border: rgba(39, 39, 42, 0.8);
+      --text-main: #fafafa;
+      --text-muted: #a1a1aa;
+      --primary: #ffffff;
+      --primary-fg: #000000;
+      --accent: #4f46e5;
+      --input-bg: rgba(24, 24, 27, 0.8);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body, html {
+      height: 100%;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg);
+      color: var(--text-main);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Ambient Aurora Canvas */
+    #ambient-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      filter: blur(60px); /* Heavy blur for the cloudy/aurora effect */
+    }
+
+    /* Main Auth Container */
+    .auth-wrapper {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      max-width: 420px;
+      padding: 2rem;
+      animation: fadeUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .auth-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2.5rem 2rem;
+      box-shadow: 0 24px 50px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    /* Logo & Header */
+    .header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .logo-box {
+      width: 42px; height: 42px;
+      background: #ffffff;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 8px 16px rgba(255,255,255,0.1);
+    }
+
+    .logo-box svg {
+      width: 22px; height: 22px;
+      color: #000000;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    /* Form Elements */
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      color: var(--text-main);
+    }
+
+    input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.875rem;
+      transition: all 0.2s ease;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.3);
+      background: rgba(24, 24, 27, 0.95);
+    }
+
+    input::placeholder { color: #52525b; }
+
+    .options {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      font-size: 0.8rem;
+    }
+
+    .checkbox-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+
+    .checkbox-wrap input {
+      width: 14px; height: 14px;
+      accent-color: var(--accent);
+      cursor: pointer;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+    }
+
+    a {
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    a:hover { color: var(--text-main); }
+
+    /* Buttons */
+    .btn {
+      width: 100%;
+      padding: 0.75rem;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+      border: none;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: var(--primary-fg);
+      margin-bottom: 1rem;
+    }
+
+    .btn-primary:hover {
+      background: #e4e4e7;
+      transform: translateY(-1px);
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      text-align: center;
+      margin: 1.5rem 0;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+    }
+
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      border-bottom: 1px solid var(--border);
+    }
+    .divider span { padding: 0 1rem; }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-main);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(39, 39, 42, 0.5);
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="ambient-canvas"></canvas>
+
+  <div class="auth-wrapper">
+    <div class="auth-card">
+      <div class="header">
+        <div class="logo-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
+          </svg>
+        </div>
+        <h1>Welcome to Chronicle</h1>
+        <p class="subtitle">Sign in to your prompt ops command center.</p>
+      </div>
+
+      <form onsubmit="event.preventDefault();">
+        <div class="form-group">
+          <label>Email address</label>
+          <input type="email" placeholder="name@company.com" required />
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" placeholder="••••••••" required />
+        </div>
+        <div class="options">
+          <label class="checkbox-wrap">
+            <input type="checkbox" />
+            <span>Remember me</span>
+          </label>
+          <a href="#">Forgot password?</a>
+        </div>
+        <button type="submit" class="btn btn-primary">Sign in to workspace</button>
+      </form>
+
+      <div class="divider"><span>or</span></div>
+
+      <button class="btn btn-secondary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+        </svg>
+        Continue with GitHub
+      </button>
+    </div>
+    
+    <div class="footer">
+      Don't have an account? <a href="#" style="color: var(--text-main); font-weight: 500;">Request access</a>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('ambient-canvas');
+    const ctx = canvas.getContext('2d');
+    let width, height;
+    let time = 0;
+
+    let mx = window.innerWidth / 2;
+    let my = window.innerHeight / 2;
+    let targetX = mx;
+    let targetY = my;
+
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    window.addEventListener('mousemove', e => {
+      targetX = e.clientX;
+      targetY = e.clientY;
+    });
+
+    // Deep, calm, oceanic/aurora colors
+    const orbs = [
+      { color: 'rgba(79, 70, 229, 0.4)', size: 0.6, speed: 0.001, offset: 0 },         // Indigo
+      { color: 'rgba(6, 182, 212, 0.25)', size: 0.5, speed: 0.0012, offset: Math.PI }, // Teal
+      { color: 'rgba(139, 92, 246, 0.3)', size: 0.7, speed: 0.0008, offset: Math.PI/2 }// Violet
+    ];
+
+    function draw() {
+      ctx.clearRect(0, 0, width, height);
+      time += 1;
+
+      mx += (targetX - mx) * 0.04; // Very smooth, calm lerp
+      my += (targetY - my) * 0.04;
+
+      ctx.globalCompositeOperation = 'screen';
+
+      // 1. Draw Breathing Aurora Orbs
+      orbs.forEach((orb, i) => {
+        // Slow sweeping figure-8 motions
+        const x = width/2 + Math.sin(time * orb.speed + orb.offset) * width * 0.35;
+        const y = height/2 + Math.cos(time * orb.speed * 0.8 + orb.offset) * height * 0.25;
+        
+        // Gentle breathing size
+        const r = (Math.max(width, height) * orb.size) + Math.sin(time * 0.005 + i) * 50;
+
+        const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+        grad.addColorStop(0, orb.color);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // 2. Draw Gentle Mouse Illumination
+      const glowRadius = Math.max(width, height) * 0.4; 
+      const mouseGlow = ctx.createRadialGradient(mx, my, 0, mx, my, glowRadius);
+      mouseGlow.addColorStop(0, 'rgba(99, 102, 241, 0.15)'); // Soft indigo
+      mouseGlow.addColorStop(1, 'rgba(0,0,0,0)');
+      
+      ctx.fillStyle = mouseGlow;
+      ctx.beginPath();
+      ctx.arc(mx, my, glowRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.globalCompositeOperation = 'source-over';
+      requestAnimationFrame(draw);
+    }
+    draw();
+  </script>
+</body>
+</html>

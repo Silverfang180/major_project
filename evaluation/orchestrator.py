@@ -8,7 +8,8 @@ EvalResult.run_id satisfies the FK constraint against runs.run_id.
 
 import logging
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
+import asyncio
 
 from sqlalchemy import select
 
@@ -39,7 +40,7 @@ async def run_eval_job(job_id: UUID, api_key: str):
                 return
 
             job.status = JobStatus.running
-            job.started_at = datetime.utcnow()
+            job.started_at = datetime.now(timezone.utc)
             await db.commit()
 
             # Fetch version once — all examples use the same version
@@ -133,6 +134,9 @@ async def run_eval_job(job_id: UUID, api_key: str):
                     await db.commit()
                     accepted_results.append(eval_res)
 
+                    # Pacing: add a small delay between requests to avoid burst rate limits
+                    await asyncio.sleep(0.2)
+
                 except Exception as e:
                     logger.error(
                         f"Job {job_id} example {example.example_id} failed: {e}"
@@ -141,7 +145,7 @@ async def run_eval_job(job_id: UUID, api_key: str):
                     # Continue to next example
 
             job.status = JobStatus.completed
-            job.completed_at = datetime.utcnow()
+            job.completed_at = datetime.now(timezone.utc)
             await db.commit()
 
             # Run evaluators on in-memory result objects (no re-fetch)

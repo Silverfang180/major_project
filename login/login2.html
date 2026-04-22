@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Chronicle — Terminal Login</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #000000;
+    --panel: #0a0a0a;
+    --text: #ededed;
+    --muted: #666666;
+    --accent: #00ff41; /* Terminal green */
+    --border: #333333;
+  }
+  
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Data stream background */
+  #matrix-canvas {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 0; opacity: 0.15; pointer-events: none;
+  }
+
+  .login-wrapper {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 440px;
+    padding: 2rem;
+  }
+
+  /* Brutalist Card */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 2.5rem 2rem;
+    box-shadow: 8px 8px 0px rgba(0, 255, 65, 0.15); /* Hard shadow */
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .card:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 10px 10px 0px rgba(0, 255, 65, 0.25);
+  }
+
+  .header { margin-bottom: 2rem; }
+  .header h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 10px;}
+  .header h1::before { content: '>'; color: var(--accent); }
+  .header p { color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
+
+  .oauth-btn {
+    width: 100%; padding: 0.8rem; margin-bottom: 0.8rem;
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text); font-family: inherit; font-size: 0.85rem;
+    cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .oauth-btn:hover { background: var(--text); color: var(--bg); }
+
+  .divider {
+    text-align: center; margin: 1.5rem 0; color: var(--muted);
+    font-size: 0.75rem; text-transform: uppercase; letter-spacing: 2px;
+    position: relative;
+  }
+  .divider::before, .divider::after {
+    content: ''; position: absolute; top: 50%; width: 35%; height: 1px; background: var(--border);
+  }
+  .divider::before { left: 0; } .divider::after { right: 0; }
+
+  .field { margin-bottom: 1.2rem; }
+  .field label { display: block; font-size: 0.75rem; color: var(--muted); margin-bottom: 0.4rem; }
+  .field input {
+    width: 100%; padding: 0.8rem; background: var(--bg);
+    border: 1px solid var(--border); color: var(--text);
+    font-family: inherit; font-size: 0.9rem; transition: border-color 0.2s;
+  }
+  .field input:focus { outline: none; border-color: var(--accent); }
+
+  .submit-btn {
+    width: 100%; padding: 0.9rem; margin-top: 1rem;
+    background: var(--accent); border: none; color: #000;
+    font-family: inherit; font-weight: 700; font-size: 0.9rem;
+    cursor: pointer; text-transform: uppercase; transition: opacity 0.2s;
+  }
+  .submit-btn:hover { opacity: 0.8; }
+
+  .footer { text-align: center; margin-top: 1.5rem; font-size: 0.8rem; color: var(--muted); }
+  .footer a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; transition: border 0.2s;}
+  .footer a:hover { border-bottom-color: var(--accent); }
+
+  /* Blinking cursor effect */
+  .cursor { display: inline-block; width: 8px; height: 1rem; background: var(--accent); animation: blink 1s step-end infinite; vertical-align: middle; margin-left: 5px;}
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+</style>
+</head>
+<body>
+
+<canvas id="matrix-canvas"></canvas>
+
+<div class="login-wrapper">
+  <div class="card">
+    <div class="header">
+      <h1>CHRONICLE <span class="cursor"></span></h1>
+      <p>Initiate session. Access model registry and prompt ops dashboard.</p>
+    </div>
+
+    <button class="oauth-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      Continue with GitHub
+    </button>
+
+    <div class="divider">SYS.AUTH.LOCAL</div>
+
+    <form onsubmit="event.preventDefault(); alert('Auth protocol initiated.');">
+      <div class="field">
+        <label>ROOT_EMAIL</label>
+        <input type="email" placeholder="sysadmin@domain.com" required/>
+      </div>
+      <div class="field">
+        <label>SECURE_KEY</label>
+        <input type="password" placeholder="••••••••" required/>
+      </div>
+      <button type="submit" class="submit-btn">Execute Login</button>
+    </form>
+
+    <div class="footer">
+      Unregistered node? <a href="#">Request clearance</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Lightweight Matrix-style Data Stream
+  const canvas = document.getElementById('matrix-canvas');
+  const ctx = canvas.getContext('2d');
+  
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  
+  const chars = '01ｦXYZｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ'.split('');
+  const fontSize = 14;
+  const columns = canvas.width / fontSize;
+  const drops = Array.from({length: columns}).fill(1);
+  
+  function draw() {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#00ff41'; // Green text
+    ctx.font = fontSize + 'px monospace';
+    
+    for (let i = 0; i < drops.length; i++) {
+      const text = chars[Math.floor(Math.random() * chars.length)];
+      ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+      if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+        drops[i] = 0;
+      }
+      drops[i]++;
+    }
+  }
+  setInterval(draw, 50);
+
+  window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  });
+</script>
+</body>
+</html>

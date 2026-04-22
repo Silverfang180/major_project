@@ -104,7 +104,7 @@ export function EvalJobsPage() {
         <div className="flex justify-end">
           <button 
             onClick={openCreateModal} 
-            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-[0.8125rem] font-bold rounded-xl transition-all shadow-lg shadow-primary/20 active:scale-95"
+            className="flex items-center gap-2 px-4 py-2 bg-primary hover:opacity-90 text-primary-foreground text-[0.8125rem] font-bold rounded-xl transition-all shadow-md active:scale-95"
           >
             <Plus size={14} /> Create Eval Job
           </button>
@@ -127,24 +127,40 @@ export function EvalJobsPage() {
               <tbody>
                 {jobs.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+                    <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
                       No evaluation jobs found.
                     </td>
                   </tr>
                 ) : jobs.map((job) => (
                   <tr key={job.job_id} className="border-b border-border/10 table-row-hover transition-colors" onClick={() => job.status === "completed" && navigate(`/eval-analytics/${job.job_id}`)}>
+                    {/* Job ID */}
                     <td className="px-4 py-3 text-[0.8125rem] text-muted-foreground font-mono">{job.job_id.slice(0, 8)}</td>
-                    <td className="px-4 py-3 text-[0.8125rem] text-primary font-bold">{job.prompt_key || job.prompt_id.slice(0, 8)}</td>
-                    <td className="px-4 py-3 text-[0.8125rem] text-foreground font-medium">{job.dataset_name || job.dataset_id.slice(0, 8)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1 flex-wrap">
-                        {job.evaluators?.map((e) => <Badge key={e} variant="info">{e}</Badge>)}
-                      </div>
+                    
+                    {/* Prompt */}
+                    <td className="px-4 py-3 text-[0.8125rem] text-primary font-bold">
+                      {job.prompt_key || job.prompt_id.slice(0, 8)}
                     </td>
-                    <td className="px-4 py-3"><Badge variant={statusVariant[job.status] || "neutral"}>{job.status}</Badge></td>
-                    <td className="px-4 py-3 text-[0.8125rem] text-foreground font-semibold">{job.summary?.accuracy != null ? `${(job.summary.accuracy * 100).toFixed(1)}%` : "—"}</td>
-                    <td className="px-4 py-3 text-[0.8125rem] text-amber-500 font-medium font-mono">{job.summary?.total_cost != null ? `$${job.summary.total_cost.toFixed(4)}` : "—"}</td>
-                    <td className="px-4 py-3 text-[0.8125rem] text-muted-foreground">{new Date(job.created_at).toLocaleDateString()}</td>
+                    
+                    {/* Version */}
+                    <td className="px-4 py-3 text-[0.8125rem] text-foreground font-medium">v{job.version_id}</td>
+                    
+                    {/* Dataset */}
+                    <td className="px-4 py-3 text-[0.8125rem] text-foreground font-medium">{job.dataset_name || job.dataset_id.slice(0, 8)}</td>
+                    
+                    {/* Status */}
+                    <td className="px-4 py-3">
+                      <Badge variant={statusVariant[job.status] || "neutral"}>{job.status}</Badge>
+                    </td>
+                    
+                    {/* Accuracy */}
+                    <td className="px-4 py-3 text-[0.8125rem] text-foreground font-semibold">
+                      {job.summary?.accuracy != null ? `${(job.summary.accuracy * 100).toFixed(1)}%` : "—"}
+                    </td>
+                    
+                    {/* Created */}
+                    <td className="px-4 py-3 text-[0.8125rem] text-muted-foreground">
+                      {new Date(job.created_at).toLocaleDateString()}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -155,7 +171,7 @@ export function EvalJobsPage() {
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Create Eval Job"
         footer={<>
           <button onClick={() => setCreateOpen(false)} className="px-4 py-2 text-[0.8125rem] text-muted-foreground bg-muted border border-border rounded-xl hover:bg-muted-hover transition-all font-bold">Cancel</button>
-          <button onClick={handleCreate} className="px-6 py-2 text-[0.8125rem] bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all font-bold">Create Job</button>
+          <button onClick={handleCreate} className="px-6 py-2 text-[0.8125rem] bg-primary text-primary-foreground rounded-xl hover:opacity-90 transition-all font-bold">Create Job</button>
         </>}>
         <div className="space-y-5">
           <div className="space-y-1.5">

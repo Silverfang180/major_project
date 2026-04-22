@@ -23,6 +23,7 @@ export function DatasetsPage() {
   // Add example form
   const [exInputJson, setExInputJson] = useState("");
   const [exExpected, setExExpected] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     loadDatasets();
@@ -82,6 +83,23 @@ export function DatasetsPage() {
     }
   }
 
+  async function handleCsvUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !selected) return;
+
+    setUploading(true);
+    try {
+      const res = await api.uploadExamplesCsv(selected, file);
+      alert(`Imported ${res.imported} examples! ${res.skipped ? `(Skipped ${res.skipped})` : ""}`);
+      selectDataset(selected);
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
   async function handleDeleteDataset() {
     if (!selected || !confirm("Delete this dataset?")) return;
     try {
@@ -99,7 +117,7 @@ export function DatasetsPage() {
   return (
     <div>
       <Topbar title="Datasets" subtitle="Manage evaluation datasets and examples" />
-      <div className="flex h-[calc(100vh-57px)]">
+      <div className="flex h-[calc(100vh-64px)]">
         <div className="w-64 border-r border-border p-4 space-y-2 overflow-y-auto shrink-0 bg-muted/10">
           <button 
             onClick={() => setCreateDatasetOpen(true)} 
@@ -138,10 +156,24 @@ export function DatasetsPage() {
                   </div>
                 </div>
                 <div className="flex gap-2">
+                  <input
+                    type="file"
+                    id="csv-upload"
+                    className="hidden"
+                    accept=".csv"
+                    onChange={handleCsvUpload}
+                  />
+                  <label 
+                    htmlFor="csv-upload" 
+                    className={`flex items-center gap-1.5 px-4 py-2 border border-primary/30 text-primary hover:bg-primary/5 text-[0.8125rem] font-bold rounded-xl transition-all cursor-pointer shadow-sm active:scale-95 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
+                  >
+                    {uploading ? <Loader2 size={14} className="animate-spin" /> : <TableProperties size={14} />}
+                    {uploading ? "Uploading..." : "Upload CSV"}
+                  </label>
                   <button onClick={() => setAddExampleOpen(true)} className="flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-[0.8125rem] font-bold rounded-xl transition-all shadow-md active:scale-95">
                     <Plus size={14} /> Add Example
                   </button>
-                  <button onClick={handleDeleteDataset} className="flex items-center gap-1.5 px-4 py-2 border border-rose-500/30 text-rose-500 hover:text-white text-[0.8125rem] font-bold rounded-xl hover:bg-rose-500 transition-all active:scale-95 shadow-sm shadow-rose-500/10">
+                  <button onClick={handleDeleteDataset} className="flex items-center gap-1.5 px-4 py-2 border border-destructive/30 text-destructive hover:bg-destructive hover:text-destructive-foreground text-[0.8125rem] font-bold rounded-xl transition-all active:scale-95 shadow-sm">
                     <Trash2 size={14} /> Delete Dataset
                   </button>
                 </div>
@@ -203,7 +235,7 @@ export function DatasetsPage() {
       <Modal open={createDatasetOpen} onClose={() => setCreateDatasetOpen(false)} title="Create Dataset"
         footer={<>
           <button onClick={() => setCreateDatasetOpen(false)} className="px-4 py-2 text-[0.8125rem] text-muted-foreground bg-muted border border-border rounded-xl hover:bg-muted-hover transition-all font-bold">Cancel</button>
-          <button onClick={handleCreateDataset} className="px-6 py-2 text-[0.8125rem] bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all font-bold">Create Dataset</button>
+          <button onClick={handleCreateDataset} className="px-6 py-2 text-[0.8125rem] bg-primary text-primary-foreground rounded-xl hover:opacity-90 transition-all font-bold">Create Dataset</button>
         </>}>
         <div className="space-y-5">
           <div className="space-y-1.5">
@@ -228,7 +260,7 @@ export function DatasetsPage() {
       <Modal open={addExampleOpen} onClose={() => setAddExampleOpen(false)} title="Add Example"
         footer={<>
           <button onClick={() => setAddExampleOpen(false)} className="px-4 py-2 text-[0.8125rem] text-muted-foreground bg-muted border border-border rounded-xl hover:bg-muted-hover transition-all font-bold">Cancel</button>
-          <button onClick={handleAddExample} className="px-6 py-2 text-[0.8125rem] bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all font-bold">Save Example</button>
+          <button onClick={handleAddExample} className="px-6 py-2 text-[0.8125rem] bg-primary text-primary-foreground rounded-xl hover:opacity-90 transition-all font-bold">Save Example</button>
         </>}>
         <div className="space-y-5">
           <div className="space-y-1.5">

@@ -33,6 +33,60 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Execution"])
 
+from prometheus_client import REGISTRY
+
+@router.get("/metrics/summary")
+async def get_metrics_summary():
+    """Returns a JSON summary of Prometheus metrics."""
+    metrics = []
+    for metric in REGISTRY.collect():
+        samples = []
+        for sample in metric.samples:
+            samples.append({
+                "name": sample.name,
+                "labels": sample.labels,
+                "value": sample.value
+            })
+        metrics.append({
+            "name": metric.name,
+            "description": metric.documentation,
+            "type": metric.type,
+            "samples": samples
+        })
+    
+    total_requests = 0
+    total_errors = 0
+    latency_sum = 0
+    latency_count = 0
+    
+    for metric in metrics:
+        if metric["name"] == "http_requests_total":
+            for sample in metric["samples"]:
+                total_requests += sample["value"]
+                status = sample["labels"].get("status", "200")
+                if status.startswith("4") or status.startswith("5"):
+                    total_errors += sample["value"]
+        elif metric["name"] == "http_request_duration_seconds":
+            for sample in metric["samples"]:
+                if sample["name"] == "http_request_duration_seconds_sum":
+                    latency_sum += sample["value"]
+                elif sample["name"] == "http_request_duration_seconds_count":
+                    latency_count += sample["value"]
+
+    avg_latency = round((latency_sum / latency_count) * 1000, 2) if latency_count > 0 else 0
+    error_rate = round((total_errors / total_requests) * 100, 2) if total_requests > 0 else 0
+    
+    return {
+        "kpis": {
+            "total_requests": int(total_requests),
+            "total_errors": int(total_errors),
+            "error_rate_percent": error_rate,
+            "average_latency_ms": avg_latency
+        },
+        "raw_metrics": metrics
+    }
+
+
 
 @router.get("/runs")
 async def list_runs(
@@ -82,7 +136,6 @@ async def get_model_pricing():
 async def get_api_keys():
     """Return configured API keys (masked)."""
     keys_config = [
-        {"name": "OpenAI", "env_var": "OPENAI_API_KEY"},
         {"name": "Google AI", "env_var": "GEMINI_API_KEY"},
         {"name": "Groq", "env_var": "GROQ_API_KEY"},
     ]
@@ -90,7 +143,14 @@ async def get_api_keys():
     response = []
     for k in keys_config:
         val = os.getenv(k["env_var"], "")
-        masked = f"{val[:4]}...{val[-4:]}" if len(val) > 8 else ("" if not val else "***")
+        # Mask the middle of the key for security as requested: "make them in '*****'"
+        if len(val) > 8:
+            masked = f"{val[:4]}****{val[-4:]}"
+        elif val:
+            masked = "********"
+        else:
+            masked = "missing"
+            
         response.append({
             "name": k["name"],
             "key": masked,
@@ -99,44 +159,7 @@ async def get_api_keys():
     return response
 
 
-class ApiKeyUpdate(BaseModel):
-    name: str
-    key: str
-
-@router.post("/config/keys")
-async def update_api_key(payload: ApiKeyUpdate):
-    """Update an API key in the .env file and memory."""
-    env_map = {
-        "OpenAI": "OPENAI_API_KEY",
-        "Google AI": "GEMINI_API_KEY",
-        "Groq": "GROQ_API_KEY"
-    }
-    env_var = env_map.get(payload.name)
-    if not env_var:
-        raise HTTPException(400, "Unknown provider")
-        
-    os.environ[env_var] = payload.key
-    
-    env_path = ".env"
-    if os.path.exists(env_path):
-        with open(env_path, "r") as f:
-            lines = f.readlines()
-            
-        found = False
-        with open(env_path, "w") as f:
-            for line in lines:
-                if line.startswith(f"{env_var}="):
-                    f.write(f"{env_var}={payload.key}\n")
-                    found = True
-                else:
-                    f.write(line)
-            if not found:
-                f.write(f"\n{env_var}={payload.key}\n")
-    else:
-        with open(env_path, "w") as f:
-            f.write(f"{env_var}={payload.key}\n")
-            
-    return {"status": "success"}
+# update_api_key endpoint removed for security. Config should be managed via .env or Orchestrator variables.
 
 
 @router.post("/execute/{prompt_key}", response_model=ExecuteResponse)

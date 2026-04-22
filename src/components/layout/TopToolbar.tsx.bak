@@ -1,0 +1,219 @@
+import React, { useState, useEffect } from 'react';
+import { useDashboardStore, stringifyMessages } from '../../store/dashboardStore';
+import { api } from '../../lib/api';
+import { Play, SplitSquareHorizontal, History, CloudUpload, ArrowLeft, Plus } from 'lucide-react';
+import { motion } from 'framer-motion';
+
+const USER_ID = "00000000-0000-0000-0000-000000000000"; // Mock User ID
+
+export const TopToolbar: React.FC = () => {
+    const {
+        messages, provider, model, temperature, topP, maxTokens,
+        setStreaming, setOutput, setTrace, isStreaming,
+        activePromptId, setActivePromptId, currentVersionId, setCurrentVersionId,
+        loadVersionData
+    } = useDashboardStore();
+
+    const [prompts, setPrompts] = useState<any[]>([]);
+
+    // Initial Load of Prompts
+    useEffect(() => {
+        const loadInitialData = async () => {
+            try {
+                const list = await api.getPrompts();
+                setPrompts(list);
+                if (list.length > 0 && !activePromptId) {
+                    setActivePromptId(list[0].prompt_id);
+                }
+            } catch (err) {
+                console.error("Failed to load prompts:", err);
+            }
+        };
+        loadInitialData();
+    }, []);
+
+    // Load versions when active prompt changes
+    useEffect(() => {
+        const loadHistory = async () => {
+            if (!activePromptId) return;
+            try {
+                const history = await api.getVersions(activePromptId);
+                if (history.length > 0) {
+                    const latest = history[0]; // Assuming API returns newest first
+                    setCurrentVersionId(latest.id);
+
+                    // Parse text and settings to Zustand
+                    loadVersionData(latest.text, latest.model_settings?.usage || {});
+                } else {
+                    setCurrentVersionId('Draft');
+                    loadVersionData('');
+                }
+            } catch (err) {
+                console.error("Failed to load versions:", err);
+            }
+        };
+        loadHistory();
+    }, [activePromptId]);
+
+    const handleRun = async () => {
+        setStreaming(true);
+        setOutput("");
+        setTrace(null);
+
+        try {
+            const promptText = stringifyMessages(messages);
+            const res = await api.runSimulation(promptText, provider, model);
+
+            setOutput(res.response);
+            setTrace({
+                tokens: res.usage.total_tokens || res.usage.output_tokens || 0,
+                latency: res.usage.total_cost ? `$${res.usage.total_cost.toFixed(4)}` : 'N/A'
+            });
+        } catch (e) {
+            setOutput("Error running simulation. Is the backend available?");
+            console.error(e);
+        } finally {
+            setStreaming(false);
+        }
+    };
+
+    const handleCommit = async () => {
+        try {
+            let targetPromptId = activePromptId;
+
+            // If no active prompt, create one
+            if (!targetPromptId) {
+                let name = prompt("Enter a name for this prompt:", "New Prompt");
+                if (!name) name = "Untitled Prompt";
+
+                const uniqueKey = "prompt-" + Date.now();
+                const newPrompt = await api.createPrompt(uniqueKey, name, USER_ID);
+                targetPromptId = newPrompt.prompt_id;
+                setActivePromptId(targetPromptId);
+
+                // Refresh list
+                const updatedList = await api.getPrompts();
+                setPrompts(updatedList);
+            }
+
+            const promptText = stringifyMessages(messages);
+            const modelSettings = { provider, model, temperature, topP, maxTokens };
+
+            // Save version
+            await api.createVersion(targetPromptId, promptText, USER_ID, modelSettings);
+
+            // Reload history to get new Version ID
+            const history = await api.getVersions(targetPromptId);
+            if (history.length > 0) {
+                setCurrentVersionId(history[0].id);
+            }
+            alert("Version committed successfully!");
+        } catch (e) {
+            console.error("Commit failed", e);
+            alert("Failed to commit version.");
+        }
+    };
+
+    const handleNewPrompt = async () => {
+        let name = prompt("Enter a name for the new prompt:", "New Prompt");
+        if (!name) return;
+
+        try {
+            const uniqueKey = "prompt-" + Date.now();
+            const newPrompt = await api.createPrompt(uniqueKey, name, USER_ID);
+
+            const updatedList = await api.getPrompts();
+            setPrompts(updatedList);
+            setActivePromptId(newPrompt.prompt_id);
+            setCurrentVersionId('Draft');
+            loadVersionData('');
+            setOutput('');
+            setTrace(null);
+        } catch (e) {
+            alert("Failed to create new prompt");
+        }
+    }
+
+    const currentPromptName = prompts.find(p => p.prompt_id === activePromptId)?.title || "Untitled";
+
+    return (
+        <header className="h-14 border-b border-white/5 bg-background/80 backdrop-blur-md flex items-center justify-between px-4 z-10 relative shadow-sm">
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-transparent pointer-events-none" />
+
+            <div className="flex items-center gap-4 relative">
+                <motion.button
+                    onClick={handleNewPrompt}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="p-1.5 text-muted-foreground hover:bg-white/10 hover:text-white rounded-lg transition-colors"
+                    title="New Prompt"
+                >
+                    <Plus className="w-5 h-5" />
+                </motion.button>
+                <div className="flex items-center gap-3 border-l border-white/10 pl-4">
+                    <select
+                        value={activePromptId}
+                        onChange={(e) => setActivePromptId(e.target.value)}
+                        className="bg-transparent font-semibold border-none focus:ring-0 text-foreground/90 cursor-pointer outline-none w-48 truncate"
+                    >
+                        {prompts.length === 0 && <option value="">No Prompts</option>}
+                        {prompts.map(p => (
+                            <option key={p.prompt_id} value={p.prompt_id} className="bg-[#1e1e1e]">
+                                {p.title}
+                            </option>
+                        ))}
+                    </select>
+
+                    <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-md border border-primary/20 shadow-inner">
+                        {currentVersionId || 'Draft'}
+                    </span>
+                </div>
+            </div>
+
+            <div className="flex items-center gap-2 relative">
+                <motion.button
+                    whileHover={{ y: -1 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium border border-white/10 rounded-lg text-muted-foreground hover:bg-white/5 hover:text-foreground transition-all shadow-sm"
+                    title="Compare Models"
+                >
+                    <SplitSquareHorizontal className="w-4 h-4 text-blue-400" />
+                    <span>Compare</span>
+                </motion.button>
+
+                <motion.button
+                    whileHover={{ y: -1 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium border border-white/10 rounded-lg text-muted-foreground hover:bg-white/5 hover:text-foreground transition-all shadow-sm"
+                    title="Version History"
+                >
+                    <History className="w-4 h-4 text-purple-400" />
+                    <span>History</span>
+                </motion.button>
+
+                <div className="w-px h-6 bg-white/10 mx-1"></div>
+
+                <motion.button
+                    onClick={handleCommit}
+                    whileHover={{ y: -1 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium border border-white/10 rounded-lg text-muted-foreground hover:bg-white/5 hover:text-foreground transition-all shadow-sm"
+                >
+                    <CloudUpload className="w-4 h-4 text-emerald-400" />
+                    <span>Commit</span>
+                </motion.button>
+
+                <motion.button
+                    onClick={handleRun}
+                    disabled={isStreaming}
+                    whileHover={{ scale: 1.02, boxShadow: "0 0 15px rgba(59, 130, 246, 0.5)" }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex items-center gap-2 px-5 py-1.5 text-sm font-semibold rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md transition-all ml-1 border border-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <Play className="w-4 h-4" fill="currentColor" />
+                    <span>{isStreaming ? 'Running...' : 'Run'}</span>
+                </motion.button>
+            </div>
+        </header>
+    );
+};

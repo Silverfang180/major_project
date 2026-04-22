@@ -70,34 +70,47 @@ async def call_llm(
     client = _get_client()
     model = model or settings.default_llm_model
     
-    start_time = time.perf_counter()
+    max_retries = 3
+    base_delay = 1.0  # seconds
     
-    try:
-        response = await client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": rendered_prompt}],
-            temperature=temperature,
-            max_tokens=max_tokens
-        )
-        
-        latency_ms = int((time.perf_counter() - start_time) * 1000)
-        
-        choice = response.choices[0]
-        usage = response.usage
-        
-        return {
-            "response": choice.message.content or "",
-            "model": response.model,
-            "usage": {
-                "prompt_tokens": usage.prompt_tokens if usage else 0,
-                "completion_tokens": usage.completion_tokens if usage else 0,
-                "total_tokens": usage.total_tokens if usage else 0
-            },
-            "finish_reason": choice.finish_reason,
-            "latency_ms": latency_ms
-        }
-        
-    except Exception as e:
-        latency_ms = int((time.perf_counter() - start_time) * 1000)
-        logger.error(f"LLM call failed after {latency_ms}ms: {e}")
-        raise LLMError(f"Groq API error: {str(e)}") from e
+    for attempt in range(max_retries + 1):
+        start_time = time.perf_counter()
+        try:
+            response = await client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": rendered_prompt}],
+                temperature=temperature,
+                max_tokens=max_tokens
+            )
+            
+            latency_ms = int((time.perf_counter() - start_time) * 1000)
+            choice = response.choices[0]
+            usage = response.usage
+            
+            return {
+                "response": choice.message.content or "",
+                "model": response.model,
+                "usage": {
+                    "prompt_tokens": usage.prompt_tokens if usage else 0,
+                    "completion_tokens": usage.completion_tokens if usage else 0,
+                    "total_tokens": usage.total_tokens if usage else 0
+                },
+                "finish_reason": choice.finish_reason,
+                "latency_ms": latency_ms
+            }
+            
+        except Exception as e:
+            latency_ms = int((time.perf_counter() - start_time) * 1000)
+            error_str = str(e).lower()
+            
+            # Check for Rate Limit (429) specifically
+            if "429" in error_str or "rate limit" in error_str:
+                if attempt < max_retries:
+                    delay = base_delay * (2 ** attempt)
+                    logger.warning(f"Rate limit hit (429). Retrying in {delay}s... (Attempt {attempt + 1}/{max_retries})")
+                    import asyncio
+                    await asyncio.sleep(delay)
+                    continue
+            
+            logger.error(f"LLM call failed after {latency_ms}ms: {e}")
+            raise LLMError(f"Groq API error: {str(e)}") from e

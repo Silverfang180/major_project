@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chronicle — Minimal Waves Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#ffffff; 
+      --text:#000000; 
+      --muted:#6b7280;
+      --card:rgba(255, 255, 255, 0.85); 
+      --line:rgba(0, 0, 0, 0.15);
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body,html{height:100%;overflow:hidden;background:var(--bg);font-family:Outfit,sans-serif;color:var(--text)}
+    canvas{position:fixed;inset:0;z-index:0}
+    .wrap{position:relative;z-index:10;height:100%;display:grid;place-items:center;padding:20px}
+    .card{
+      width:min(420px,92vw); padding:2rem; border-radius:20px;
+      background:var(--card); border:1px solid var(--line);
+      backdrop-filter:blur(16px); box-shadow:0 24px 60px rgba(0,0,0,.08);
+    }
+    .meta{font-family:"JetBrains Mono",monospace;font-size:.7rem;color:#000000;letter-spacing:.14em;margin-bottom:10px; font-weight:700;}
+    h2{font-size:1.8rem;margin-bottom:8px; font-weight:700; letter-spacing:-0.03em;}
+    .sub{font-size:.9rem;color:var(--muted);margin-bottom:24px}
+    .f{display:grid;gap:12px}
+    input{
+      padding:14px;border-radius:11px;border:1px solid var(--line);
+      background:#ffffff;color:var(--text);outline:none; font-family:Outfit, sans-serif;
+    }
+    input:focus{border-color:#000000;box-shadow:0 0 0 3px rgba(0,0,0,.08)}
+    button{
+      margin-top:12px;padding:14px;border:0;border-radius:11px;cursor:pointer;font-weight:700;
+      background:#000000; color:#ffffff; transition: transform 0.2s; font-family:Outfit, sans-serif;
+    }
+    button:hover{ transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.15);}
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <main class="wrap">
+    <section class="card">
+      <div class="meta">CHRONICLE AUTH</div>
+      <h2>Welcome back</h2>
+      <div class="sub">A minimalist space to continue your workflow.</div>
+      <form class="f" onsubmit="event.preventDefault()">
+        <input type="email" placeholder="Email Address">
+        <input type="password" placeholder="Password">
+        <button>Continue →</button>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    const c=document.getElementById('c'),ctx=c.getContext('2d');
+    let w,h,t=0,mx=0,my=0,sx=0,sy=0;
+    
+    function resize(){w=c.width=innerWidth;h=c.height=innerHeight;mx=w/2;my=h/2;sx=mx;sy=my}
+    addEventListener('resize',resize); resize();
+    addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY});
+
+    // Monochrome black waves mapping
+    const waves = Array.from({length:8},(_,i)=>({
+      y: (i+1)*0.12,
+      amp: 18 + i*6,
+      speed: 0.003 + i*0.00035,
+      thick: 1.5 + i*0.2, // Made thicker
+      color: [0, 0, 0] // Pure black
+    }));
+
+    function drawWave(baseY,amp,speed,color,th, i){
+      ctx.beginPath();
+      for(let x=0;x<=w;x+=8){
+        const y = baseY + Math.sin(x*0.008 + t*speed)*amp + Math.cos(x*0.003 - t*speed*.9)*amp*.35;
+        x===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+      }
+      // Significantly increased opacity for visibility (15% to 43%)
+      const opacity = 0.15 + (i * 0.04);
+      ctx.strokeStyle=`rgba(${color[0]},${color[1]},${color[2]},${opacity})`;
+      ctx.lineWidth=th; 
+      ctx.stroke();
+    }
+
+    function loop(){
+      t++;
+      sx += (mx-sx)*0.04; sy += (my-sy)*0.04;
+      
+      // Clean white background
+      ctx.fillStyle='#ffffff'; 
+      ctx.fillRect(0,0,w,h);
+
+      // Pronounced dark tracking aura following mouse
+      const g = ctx.createRadialGradient(sx,sy,0,sx,sy,350);
+      g.addColorStop(0,'rgba(0,0,0,0.12)'); 
+      g.addColorStop(1,'rgba(255,255,255,0)');
+      ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+
+      waves.forEach((wv,i)=>drawWave(h*wv.y + i*42, wv.amp, wv.speed, wv.color, wv.thick, i));
+      requestAnimationFrame(loop);
+    }
+    loop();
+  </script>
+</body>
+</html>

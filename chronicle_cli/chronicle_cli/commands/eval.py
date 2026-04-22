@@ -321,7 +321,17 @@ def job_report(job_id: str):
 def compare_dataset(dataset_id: str):
     """Compare all eval jobs on a dataset (Pareto Analysis)."""
     async def _flow():
-        comp = await _fetch_json(f"/api/v1/eval/compare/dataset/{dataset_id}")
+        # Resolve short ID if necessary
+        actual_dataset_id = dataset_id
+        if len(dataset_id) < 32:
+            datasets = await _fetch_json("/api/v1/eval/datasets")
+            ds = next((d for d in datasets if str(d["dataset_id"]).startswith(dataset_id)), None)
+            if not ds:
+                console.print(f"[red]Could not resolve dataset ID '{dataset_id}'[/red]")
+                return
+            actual_dataset_id = ds["dataset_id"]
+
+        comp = await _fetch_json(f"/api/v1/eval/compare/dataset/{actual_dataset_id}")
         
         rec = comp.get("recommendation", "No recommendation available.")
         console.print(Panel(rec, title="Recommendation", border_style="#6366f1"))

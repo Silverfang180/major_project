@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: chronicle
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-securepassword}
+      POSTGRES_DB: chronicle_prod
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chronicle -d chronicle_prod"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      DATABASE_URL: postgresql+asyncpg://chronicle:${DB_PASSWORD:-securepassword}@db:5432/chronicle_prod
+      SECRET_KEY: ${SECRET_KEY:-your-super-secret-key-change-me}
+      ENVIRONMENT: production
+      LOG_LEVEL: info
+      ALLOWED_HOSTS: "*"
+      CORS_ORIGINS: "*"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

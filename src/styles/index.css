@@ -2,6 +2,19 @@
 @import './tailwind.css';
 @import './theme.css';
 
+/*
+ * VERCEL-STYLE INSTANT THEME SNAP
+ * Globally disable all color/background transitions so theme switches
+ * are never animated. Individual hover/focus effects still work because
+ * they transition transform, box-shadow, opacity — not colors.
+ */
+*,
+*::before,
+*::after {
+  transition-property: transform, box-shadow, opacity, border-color, outline-color !important;
+}
+
+
 @layer utilities {
     .table-row-hover {
         @apply transition-all duration-300 cursor-pointer hover:bg-muted/50 hover:text-foreground active:bg-muted/80;
@@ -21,8 +34,8 @@
     }
     
     @keyframes page-fade-in {
-        from { opacity: 0; transform: translateY(4px); }
-        to { opacity: 1; transform: translateY(0); }
+        from { opacity: 0; }
+        to { opacity: 1; }
     }
     
     .page-fade-in {

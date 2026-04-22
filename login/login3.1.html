@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Chronicle — Glass Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#f3f6fb; --text:#10131a; --muted:#5f6878; --line:rgba(16,19,26,.12);
+  --orb1:#7ca7ff; --orb2:#9ed5ff; --orb3:#c7d8ff;
+}
+html[data-theme="dark"]{
+  --bg:#0f172a; --text:#f5f8ff; --muted:#98a5c5; --line:rgba(255,255,255,.12);
+  --orb1:#547dff; --orb2:#5bc4ff; --orb3:#9c7bff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;overflow:hidden}
+.orb{position:absolute;border-radius:50%;filter:blur(90px);z-index:0;animation:float 20s infinite ease-in-out alternate}
+.orb-1{width:46vw;height:46vw;background:color-mix(in oklab,var(--orb1) 42%, transparent);top:-10vw;left:-8vw}
+.orb-2{width:54vw;height:54vw;background:color-mix(in oklab,var(--orb2) 40%, transparent);bottom:-16vw;right:-10vw;animation-delay:-9s}
+.orb-3{width:38vw;height:38vw;background:color-mix(in oklab,var(--orb3) 32%, transparent);top:30%;left:35%;animation-delay:-4s}
+@keyframes float{0%{transform:translate(0,0) scale(1)}100%{transform:translate(8vw,4vw) scale(1.1)}}
+.glass-card{position:relative;z-index:10;width:100%;max-width:430px;padding:2.35rem;background:rgba(255,255,255,.74);backdrop-filter:blur(22px);border:1px solid var(--line);border-radius:24px;box-shadow:0 20px 45px rgba(0,0,0,.12)}
+html[data-theme="dark"] .glass-card{background:rgba(16,22,40,.65)}
+.logo{display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,var(--orb1),var(--orb2));margin-bottom:1.2rem;box-shadow:0 10px 20px rgba(79,120,220,.25)}
+.logo svg{color:#fff;width:22px;height:22px}
+h1{font-size:1.72rem;font-weight:650;margin-bottom:.45rem;letter-spacing:-.02em}
+.subtitle{color:var(--muted);font-size:.9rem;margin-bottom:1.6rem;line-height:1.5}
+.input-group{margin-bottom:1rem}.input-group label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:.45rem;font-weight:500}
+.input-wrapper input{width:100%;padding:.85rem 1rem;background:rgba(255,255,255,.7);border:1px solid var(--line);border-radius:12px;color:var(--text);font-size:.95rem;transition:.25s}
+html[data-theme="dark"] .input-wrapper input{background:rgba(0,0,0,.22)}
+.input-wrapper input:focus{outline:none;border-color:color-mix(in oklab,var(--orb1) 60%, #000);box-shadow:0 0 0 4px color-mix(in oklab,var(--orb1) 20%, transparent)}
+.options{display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:1.2rem}
+.options a{color:color-mix(in oklab,var(--orb1) 70%, #000);text-decoration:none;font-weight:500}
+.primary-btn{width:100%;padding:.9rem;background:#111;color:#fff;border:none;border-radius:12px;font-size:.95rem;font-weight:600;cursor:pointer;transition:.2s}
+html[data-theme="dark"] .primary-btn{background:#f0f4ff;color:#111}
+.primary-btn:hover{transform:translateY(-2px)}
+.separator{display:flex;align-items:center;margin:1.2rem 0;color:var(--muted);font-size:.8rem}
+.separator:before,.separator:after{content:'';flex:1;height:1px;background:var(--line)}.separator span{padding:0 1rem}
+.github-btn{width:100%;padding:.85rem;background:rgba(255,255,255,.55);border:1px solid var(--line);border-radius:12px;color:var(--text);font-size:.95rem;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px}
+html[data-theme="dark"] .github-btn{background:rgba(255,255,255,.05)}
+.github-btn:hover{background:rgba(255,255,255,.8)}
+</style>
+</head>
+<body>
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+<div class="glass-card">
+  <div class="logo"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div>
+  <h1>Welcome to Chronicle</h1>
+  <p class="subtitle">Log in to manage your models, evaluate prompts, and track deployments.</p>
+  <form onsubmit="event.preventDefault()">
+    <div class="input-group"><label>Email</label><div class="input-wrapper"><input type="email" placeholder="name@company.com"></div></div>
+    <div class="input-group"><label>Password</label><div class="input-wrapper"><input type="password" placeholder="••••••••"></div></div>
+    <div class="options"><label style="display:flex;gap:8px;align-items:center;cursor:pointer;color:var(--muted)"><input type="checkbox" style="accent-color:#2f6df6"/> Remember me</label><a href="#">Forgot password?</a></div>
+    <button class="primary-btn">Sign in</button>
+  </form>
+  <div class="separator"><span>or</span></div>
+  <button class="github-btn">Continue with GitHub</button>
+</div>
+</body>
+</html>

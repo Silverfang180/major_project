@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chronicle — Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #fafafa;
+      --card-bg: rgba(255, 255, 255, 0.75);
+      --border: rgba(226, 232, 240, 0.8);
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --primary: #0f172a;
+      --primary-fg: #ffffff;
+      --accent: #f97316; /* Matched to Sunrise theme */
+      --input-bg: rgba(255, 255, 255, 0.9);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body, html {
+      height: 100%;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg);
+      color: var(--text-main);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Sunrise Mesh Canvas & Noise */
+    #ambient-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+    }
+    
+    .noise {
+      position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: 0.04;
+      background-image: radial-gradient(circle at 20% 20%, #000 1px, transparent 1px);
+      background-size: 3px 3px;
+    }
+
+    /* Main Auth Container */
+    .auth-wrapper {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      max-width: 420px;
+      padding: 2rem;
+      animation: fadeUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .auth-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2.5rem 2rem;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255,255,255,1);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+    }
+
+    /* Logo & Header */
+    .header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .logo-box {
+      width: 42px; height: 42px;
+      background: #0f172a;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 8px 16px rgba(15, 23, 42, 0.15);
+    }
+
+    .logo-box svg {
+      width: 22px; height: 22px;
+      color: #ffffff;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    /* Form Elements */
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      color: var(--text-main);
+    }
+
+    input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.875rem;
+      transition: all 0.2s ease;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15);
+      background: #ffffff;
+    }
+
+    input::placeholder { color: #94a3b8; }
+
+    .options {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      font-size: 0.8rem;
+    }
+
+    .checkbox-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+
+    .checkbox-wrap input {
+      width: 14px; height: 14px;
+      accent-color: var(--accent);
+      cursor: pointer;
+      border: 1px solid var(--border);
+    }
+
+    a {
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    a:hover { color: var(--accent); }
+
+    /* Buttons */
+    .btn {
+      width: 100%;
+      padding: 0.75rem;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+      border: none;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: var(--primary-fg);
+      margin-bottom: 1rem;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+    }
+
+    .btn-primary:hover {
+      background: #334155;
+      transform: translateY(-1px);
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      text-align: center;
+      margin: 1.5rem 0;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+    }
+
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      border-bottom: 1px solid var(--border);
+    }
+    .divider span { padding: 0 1rem; }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.5);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: #ffffff;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="ambient-canvas"></canvas>
+  <div class="noise"></div>
+
+  <div class="auth-wrapper">
+    <div class="auth-card">
+      <div class="header">
+        <div class="logo-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
+          </svg>
+        </div>
+        <h1>Welcome to Chronicle</h1>
+        <p class="subtitle">Sign in to your prompt ops command center.</p>
+      </div>
+
+      <form onsubmit="event.preventDefault();">
+        <div class="form-group">
+          <label>Email address</label>
+          <input type="email" placeholder="name@company.com" required />
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" placeholder="••••••••" required />
+        </div>
+        <div class="options">
+          <label class="checkbox-wrap">
+            <input type="checkbox" />
+            <span>Remember me</span>
+          </label>
+          <a href="#">Forgot password?</a>
+        </div>
+        <button type="submit" class="btn btn-primary">Sign in to workspace</button>
+      </form>
+
+      <div class="divider"><span>or</span></div>
+
+      <button class="btn btn-secondary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+        </svg>
+        Continue with GitHub
+      </button>
+    </div>
+    
+    <div class="footer">
+      Don't have an account? <a href="#" style="color: var(--text-main); font-weight: 500;">Request access</a>
+    </div>
+  </div>
+
+  <script>
+    const c = document.getElementById('ambient-canvas'), x = c.getContext('2d');
+    let w,h,t=0, mx=0,my=0, lx=0,ly=0;
+
+    // Retained the exact Sunrise Mesh colors from your file
+    const blobs = [
+      {r:.42, sp:.0010, ox:0, col:[249, 115, 22]}, // Orange
+      {r:.38, sp:.0014, ox:2, col:[236, 72, 153]}, // Pink
+      {r:.34, sp:.0008, ox:4, col:[139, 92, 246]}, // Purple
+      {r:.32, sp:.0012, ox:1, col:[253, 224, 71]}  // Yellow
+    ];
+
+    function rs(){
+      w=c.width=innerWidth; h=c.height=innerHeight;
+      mx=w/2; my=h/2; lx=mx; ly=my;
+    }
+    addEventListener('resize',rs); rs();
+    addEventListener('mousemove',e=>{ mx=e.clientX; my=e.clientY; });
+
+    function draw(){
+      t++; 
+      // Smooth cursor follow
+      lx += (mx-lx)*.06; 
+      ly += (my-ly)*.06;
+
+      // Filled with #fafafa to match the sleek UI's background seamlessly
+      x.fillStyle='#fafafa';
+      x.fillRect(0,0,w,h);
+
+      blobs.forEach((b,i)=>{
+        const cx = w/2 + Math.sin(t*b.sp+b.ox)*w*.30 + (lx-w/2)*.08*(i%2?1:-1);
+        const cy = h/2 + Math.cos(t*b.sp*.85+b.ox)*h*.28 + (ly-h/2)*.06*(i%2?-1:1);
+        const rr = Math.max(w,h)*b.r;
+        const g = x.createRadialGradient(cx,cy,0,cx,cy,rr);
+        g.addColorStop(0,`rgba(${b.col[0]},${b.col[1]},${b.col[2]},0.35)`);
+        g.addColorStop(1,'rgba(255,255,255,0)');
+        x.fillStyle=g; x.beginPath(); x.arc(cx,cy,rr,0,Math.PI*2); x.fill();
+      });
+
+      const glowR = Math.max(w,h) * 0.25;
+      const mg = x.createRadialGradient(lx,ly,0,lx,ly,glowR);
+      mg.addColorStop(0,'rgba(249, 115, 22, 0.15)');
+      mg.addColorStop(0.5,'rgba(236, 72, 153, 0.08)');
+      mg.addColorStop(1,'rgba(255,255,255,0)');
+      x.fillStyle = mg; x.beginPath(); x.arc(lx,ly,glowR,0,Math.PI*2); x.fill();
+
+      requestAnimationFrame(draw);
+    }
+    draw();
+  </script>
+</body>
+</html>

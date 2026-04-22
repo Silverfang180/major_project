@@ -13,13 +13,19 @@ async def api_request(method: str, path: str, **kwargs) -> httpx.Response:
         raise typer.Exit(code=1)
         
     url = f"{context['backend_url']}{path}"
+    url = url.replace("localhost", "127.0.0.1")
     
+    import hashlib
     headers = kwargs.pop("headers", {})
     headers["X-API-Key"] = context["api_key"]
+    # HARD-SYNC WITH FRONTEND: Ensure the CLI accesses the same database space as 'a@gmail.com'
+    # The frontend hashes the lowercase email before sending it
+    user_hash = hashlib.sha256('a@gmail.com'.encode()).hexdigest()
+    headers["X-Chronicle-User"] = user_hash
     headers["Content-Type"] = "application/json"
     
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.request(method, url, headers=headers, **kwargs)
             response.raise_for_status()
             return response
@@ -40,5 +46,6 @@ async def api_request(method: str, path: str, **kwargs) -> httpx.Response:
         # If unhandled by the caller, it will raise standard Exception
         raise e
     except Exception as e:
-        console.print(f"[#ef4444]X[/#ef4444] Unexpected error: {str(e)}")
+        import traceback
+        console.print(f"[#ef4444]X[/#ef4444] Unexpected error: {traceback.format_exc()}")
         raise typer.Exit(code=1)

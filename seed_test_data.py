@@ -11,7 +11,7 @@ HEADERS = {
     "Content-Type": "application/json",
     "X-API-Key": "chronicle-dev-key"
 }
-IDENTITY = "seed-script-a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"
+IDENTITY = "seed-script-identity"
 
 def post(path, data):
     r = requests.post(f"{BASE}{path}", json=data, headers=HEADERS)
@@ -130,6 +130,26 @@ datasets_data = [
             {"input_vars": {"text": "The package arrived on time. It works as described."}, "expected_output": "NEUTRAL"},
             {"input_vars": {"text": "I love how easy this is to use. The interface is beautiful!"}, "expected_output": "POSITIVE"},
             {"input_vars": {"text": "The software crashed three times today. Very frustrating."}, "expected_output": "NEGATIVE"},
+        ]
+    },
+    {
+        "name": "Science QA Eval",
+        "description": "Extractive QA on Wikipedia-style science paragraphs",
+        "task_type": "qa",
+        "created_by": IDENTITY,
+        "examples": [
+            {"input_vars": {"context": "The dodo was a flightless bird that lived on the island of Mauritius. It became extinct in the late 17th century.", "question": "Where did the dodo live?"}, "expected_output": "island of Mauritius"},
+            {"input_vars": {"context": "The theory of evolution was first introduced by Charles Darwin in 1859.", "question": "When was the theory of evolution introduced?"}, "expected_output": "1859"},
+        ]
+    },
+    {
+        "name": "Ecommerce Sentiment",
+        "description": "Labeled sentiment analysis for ecommerce reviews",
+        "task_type": "classification",
+        "created_by": IDENTITY,
+        "examples": [
+            {"input_vars": {"input_text": "I love my new smartphone, the camera is amazing!"}, "expected_output": "positive"},
+            {"input_vars": {"input_text": "The product arrived broken and customer service was no help."}, "expected_output": "negative"},
         ]
     }
 ]

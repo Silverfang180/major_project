@@ -47,7 +47,7 @@ async def execute_prompt(prompt_key: str, variables: dict) -> tuple[dict, httpx.
     response = await api_request(
         "POST", 
         f"/api/v1/execute/{prompt_key}?alias=production",
-        json=variables,
+        json={"variables": variables},
         timeout=60.0 
     )
     return response.json(), response.headers
@@ -70,7 +70,11 @@ def execute_command(
 
     try:
         prompt_data, prod_version = asyncio.run(fetch_execute_context(prompt_key))
-    except Exception:
+    except Exception as e:
+        if hasattr(e, "response"):
+            console.print(f"\n[#ef4444]✗ Failed to fetch prompt:[/line] {e.response.text}[/#ef4444]\n")
+        else:
+            console.print(f"\n[#ef4444]✗ Failed to fetch prompt:[/line] {e}[/#ef4444]\n")
         return
 
     prompt_text = prod_version.get("prompt_text", "")
@@ -96,7 +100,16 @@ def execute_command(
         
     try:
         result, headers = asyncio.run(execute_prompt(prompt_key, final_vars))
-    except Exception:
+    except Exception as e:
+        if hasattr(e, "response"):
+            import json
+            try:
+                detail = json.loads(e.response.text).get("detail", e.response.text)
+            except:
+                detail = e.response.text
+            console.print(f"\n[#ef4444]✗ Execution failed: {detail}[/#ef4444]\n")
+        else:
+            console.print(f"\n[#ef4444]✗ Execution failed: {str(e)}[/#ef4444]\n")
         return
 
     if output_json:

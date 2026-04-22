@@ -1,0 +1,15 @@
+                              Evaluation Datasets                              
+┌────────────┬──────────────────────────┬────────────────┬──────────┬─────────┐
+│ Dataset ID │ Name                     │   Task Type    │ Examples │ Created │
+├────────────┼──────────────────────────┼────────────────┼──────────┼─────────┤
+│ 145f2b47   │ Basic Greeting Test      │   generation   │        5 │ 1h ago  │
+│ 9a4e545a   │ Ecommerce Sentiment      │ classification │        2 │ 1d ago  │
+│ 043655a5   │ Science QA Eval          │       qa       │        2 │ 1d ago  │
+│ 4db126be   │ Sentiment Benchmark      │ classification │        5 │ 1d ago  │
+│ a668ee67   │ Email Test Suite         │   generation   │        5 │ 1d ago  │
+│ 0cfe190a   │ Ecommerce Sentiment      │ classification │       21 │ 11d ago │
+│ bca52c9c   │ Science QA Eval          │       qa       │       15 │ 11d ago │
+│ 36a0660f   │ Zomato Analysis          │ classification │      148 │ 14d ago │
+│ 6bdea9c6   │ ecommerce-sentiment-eval │ classification │        0 │ 14d ago │
+│ 9f0f75c4   │ Test Dataset             │ classification │        0 │ 14d ago │
+└────────────┴──────────────────────────┴────────────────┴──────────┴─────────┘

@@ -11,6 +11,7 @@ import version_control.models as _models  # ensure models are loaded
 import version_control.alias_history as _alias_models  # alias audit trail
 import execution.models as _exec_models  # execution models
 import evaluation.models as _eval_models  # evaluation models
+import auth.models as _auth_models  # authentication models
 from config import settings
 
 

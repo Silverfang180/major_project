@@ -1,12 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-
-// ---------- SHA-256 Identity ----------
-async function sha256(message: string): Promise<string> {
-    const msgBuffer = new TextEncoder().encode(message);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
+import { api } from '../../lib/api';
 
 interface User {
   id: string;
@@ -18,7 +11,8 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -34,10 +28,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const storedUser = localStorage.getItem('chronicle-user');
         if (storedUser) {
           setUser(JSON.parse(storedUser));
-        } else {
-            // Optional: Auto-login based on identity for seamless dev experience
-            // const identity = await getIdentity();
-            // setUser({ id: identity, email: 'dev@chronicle.local', name: 'Developer' });
         }
       } catch (error) {
         console.error("Failed to restore session", error);
@@ -49,19 +39,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initializeAuth();
   }, []);
 
-  const login = async (email: string) => {
+  const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      // Mock login logic
-      await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API delay
-      const identityHash = await sha256(email.toLowerCase().trim());
-      const newUser: User = {
-        id: identityHash,
-        email: email,
-        name: email.split('@')[0] || 'User',
-      };
-      localStorage.setItem('chronicle-user', JSON.stringify(newUser));
-      setUser(newUser);
+      const data = await api.login(email, password);
+      // Backend returns { access_token, user: { id, email, name } }
+      if (data.user) {
+        localStorage.setItem('chronicle-user', JSON.stringify(data.user));
+        setUser(data.user);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const register = async (email: string, password: string, name: string) => {
+    setIsLoading(true);
+    try {
+      const data = await api.register(email, password, name);
+      if (data.user) {
+        localStorage.setItem('chronicle-user', JSON.stringify(data.user));
+        setUser(data.user);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -69,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem('chronicle-user');
+    localStorage.removeItem('chronicle-token');
     setUser(null);
   };
 
@@ -78,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: !!user,
       isLoading,
       login,
+      register,
       logout
     }}>
       {children}

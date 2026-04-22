@@ -23,8 +23,8 @@ export function Topbar({ title, subtitle }: TopbarProps) {
   }, []);
 
   return (
-    <header className="sticky top-0 z-20 bg-card/80 backdrop-blur-md border-b border-border transition-colors duration-300">
-      <div className="flex items-center justify-between px-6 py-3">
+    <header className="sticky top-0 z-20 h-16 bg-background border-b border-border transition-colors duration-300">
+      <div className="flex items-center justify-between px-6 h-full">
         <div>
           <h1 className="text-foreground text-[1.125rem] tracking-tight font-medium">{title}</h1>
           {subtitle && <div className="text-muted-foreground text-[0.75rem]">{subtitle}</div>}
@@ -33,6 +33,8 @@ export function Topbar({ title, subtitle }: TopbarProps) {
           <div className="flex items-center bg-background border border-border rounded-lg px-3 py-1.5 gap-2 group focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10 transition-all shadow-sm">
             <Search size={14} className="text-muted-foreground group-focus-within:text-primary transition-colors" />
             <input
+              name="chronicle-global-search"
+              autoComplete="off"
               placeholder="Search..."
               className="bg-transparent text-[0.8125rem] text-foreground placeholder:text-muted-foreground/50 outline-none w-48 font-medium"
             />

@@ -99,7 +99,7 @@ async def list_prompts(
     prompt_data = []
     for prompt in prompts:
         latest_version = next((v for v in prompt.versions if v.is_latest), None)
-        obj = PromptWithLatestVersion.from_orm(prompt).copy(
+        obj = PromptWithLatestVersion.model_validate(prompt).model_copy(
             update={"latest_version": latest_version}
         )
         prompt_data.append(obj)
@@ -122,7 +122,7 @@ async def get_prompt(prompt_id: UUID, db: AsyncSession = Depends(get_session)):
         raise HTTPException(status_code=404, detail=f"Prompt {prompt_id} not found")
 
     latest_version = next((v for v in prompt.versions if v.is_latest), None)
-    return PromptWithLatestVersion.from_orm(prompt).copy(
+    return PromptWithLatestVersion.model_validate(prompt).model_copy(
         update={"latest_version": latest_version}
     )
 
@@ -135,14 +135,17 @@ async def delete_prompt(prompt_id: UUID, permanent: bool = False, db: AsyncSessi
         raise HTTPException(status_code=404, detail=f"Prompt {prompt_id} not found")
 
     if not permanent:
+        logger.info(f"Soft deleting prompt {prompt_id}")
         prompt.deleted_at = func.now()
-        await db.execute(
+        
+        # Soft delete versions too
+        stmt = (
             update(PromptVersion)
             .where(PromptVersion.prompt_id == prompt_id)
             .values(deleted_at=func.now())
         )
+        await db.execute(stmt)
         await db.commit()
-        logger.info(f"Soft deleted prompt {prompt_id}")
         return None
 
     # Hard Delete path
@@ -394,20 +397,25 @@ async def restore_version(version_id: int, db: AsyncSession = Depends(get_sessio
 
 
 @router.get("/prompts/trash/all", response_model=List[PromptRead])
-async def list_trashed_prompts(db: AsyncSession = Depends(get_session)):
-    """List all soft-deleted prompts. Auto-prunes items older than 30 days."""
-    from datetime import datetime, timedelta
-    from sqlalchemy import delete
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+async def list_trashed_prompts(
+    db: AsyncSession = Depends(get_session),
+    x_chronicle_user: str = Header(default="", alias="X-Chronicle-User")
+):
+    """List all soft-deleted prompts for the user."""
+    # Use the header user by default, or fallback to something more generic 
+    # (In real prod, we'd use current_user dependency)
+    user_id = x_chronicle_user or "legacy-user"
     
-    # Pure SQL DELETE is idempotent and thread-safe implicitly by the DB engine
-    await db.execute(delete(PromptVersion).where(PromptVersion.deleted_at < thirty_days_ago))
-    await db.execute(delete(Prompt).where(Prompt.deleted_at < thirty_days_ago))
-    await db.commit()
-
-    stmt = select(Prompt).where(Prompt.deleted_at.is_not(None)).order_by(desc(Prompt.deleted_at))
+    logger.info(f"Listing trashed prompts for user: {user_id}")
+    stmt = select(Prompt).where(
+        Prompt.deleted_at.is_not(None),
+        Prompt.created_by == user_id
+    ).order_by(desc(Prompt.deleted_at))
+    
     result = await db.execute(stmt)
-    return result.scalars().all()
+    prompts = result.scalars().all()
+    logger.info(f"Found {len(prompts)} trashed prompts")
+    return prompts
 
 
 @router.get("/versions/trash/all", response_model=List[VersionRead])

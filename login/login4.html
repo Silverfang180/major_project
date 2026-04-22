@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Chronicle — Neural Net Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #050505;
+    --text: #ffffff;
+    --muted: #a1a1aa;
+    --accent: #60a5fa; /* Light Blue */
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Canvas Animation */
+  #network {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0;
+  }
+
+  /* Centered Auth Card */
+  .auth-card {
+    position: relative; z-index: 10;
+    width: 100%; max-width: 400px;
+    padding: 2.5rem;
+    background: rgba(10, 10, 12, 0.7);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+    text-align: center;
+  }
+
+  .auth-card h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem; }
+  .auth-card p { color: var(--muted); font-size: 0.85rem; margin-bottom: 2rem; }
+
+  .input-field { position: relative; margin-bottom: 1rem; text-align: left; }
+  .input-field input {
+    width: 100%; padding: 0.9rem 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px; color: #fff;
+    font-size: 0.9rem; transition: border 0.3s;
+  }
+  .input-field input:focus { outline: none; border-color: var(--accent); }
+  .input-field label {
+    position: absolute; top: -8px; left: 10px;
+    background: #0d0d0f; padding: 0 5px;
+    font-size: 0.7rem; color: var(--muted);
+  }
+
+  .btn {
+    width: 100%; padding: 0.9rem; margin-top: 1rem;
+    background: var(--accent); color: #000;
+    border: none; border-radius: 8px;
+    font-size: 0.95rem; font-weight: 600; cursor: pointer;
+    transition: transform 0.2s;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(96, 165, 250, 0.3); }
+
+  .footer-text { margin-top: 1.5rem; font-size: 0.8rem; color: var(--muted); }
+  .footer-text a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<canvas id="network"></canvas>
+
+<div class="auth-card">
+  <h1>major_project</h1>
+  <p>Authenticate to access the pipeline.</p>
+
+  <form onsubmit="event.preventDefault();">
+    <div class="input-field">
+      <label>Email ID</label>
+      <input type="email" placeholder="dev@domain.com" required/>
+    </div>
+    <div class="input-field">
+      <label>Access Token</label>
+      <input type="password" placeholder="••••••••" required/>
+    </div>
+    <button type="submit" class="btn">Initialize Session</button>
+  </form>
+  
+  <div class="footer-text">
+    Secure connection established. <a href="#">Learn more</a>
+  </div>
+</div>
+
+<script>
+  // Neural Network Particle Animation
+  const canvas = document.getElementById('network');
+  const ctx = canvas.getContext('2d');
+  
+  let w, h;
+  let particles = [];
+  const properties = {
+    particleCount: 80,
+    particleRadius: 1.5,
+    maxVelocity: 0.5,
+    lineLength: 140,
+    particleColor: 'rgba(96, 165, 250, 0.8)', // Light blue
+    lineColor: 'rgba(96, 165, 250, '
+  };
+
+  let mouse = { x: -1000, y: -1000 };
+  window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+  window.addEventListener('mouseleave', () => { mouse.x = -1000; mouse.y = -1000; });
+
+  function resize() {
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  class Particle {
+    constructor() {
+      this.x = Math.random() * w;
+      this.y = Math.random() * h;
+      this.vx = (Math.random() - 0.5) * properties.maxVelocity;
+      this.vy = (Math.random() - 0.5) * properties.maxVelocity;
+    }
+    position() {
+      // Bounce off walls
+      if (this.x + this.vx > w || this.x + this.vx < 0) this.vx *= -1;
+      if (this.y + this.vy > h || this.y + this.vy < 0) this.vy *= -1;
+      this.x += this.vx;
+      this.y += this.vy;
+    }
+    draw() {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, properties.particleRadius, 0, Math.PI * 2);
+      ctx.fillStyle = properties.particleColor;
+      ctx.fill();
+    }
+  }
+
+  for (let i = 0; i < properties.particleCount; i++) {
+    particles.push(new Particle());
+  }
+
+  function loop() {
+    ctx.fillStyle = '#050505'; // Clear background
+    ctx.fillRect(0, 0, w, h);
+
+    for (let i = 0; i < particles.length; i++) {
+      particles[i].position();
+      particles[i].draw();
+      
+      // Connect to other particles
+      for (let j = i + 1; j < particles.length; j++) {
+        let dx = particles[i].x - particles[j].x;
+        let dy = particles[i].y - particles[j].y;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < properties.lineLength) {
+          let opacity = 1 - (dist / properties.lineLength);
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.strokeStyle = properties.lineColor + (opacity * 0.5) + ')';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+
+      // Connect to mouse
+      let mdx = particles[i].x - mouse.x;
+      let mdy = particles[i].y - mouse.y;
+      let mDist = Math.sqrt(mdx * mdx + mdy * mdy);
+      if (mDist < 180) {
+        ctx.beginPath();
+        ctx.moveTo(particles[i].x, particles[i].y);
+        ctx.lineTo(mouse.x, mouse.y);
+        ctx.strokeStyle = properties.lineColor + (1 - mDist/180) * 0.8 + ')';
+        ctx.stroke();
+      }
+    }
+    requestAnimationFrame(loop);
+  }
+  loop();
+</script>
+</body>
+</html>

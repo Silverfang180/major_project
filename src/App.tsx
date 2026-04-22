@@ -11,9 +11,11 @@ import { ABTestsPage } from './app/pages/ABTestsPage'
 import { ModelComparisonsPage } from './app/pages/ModelComparisonsPage'
 import { ParetoPage } from './app/pages/ParetoPage'
 import { MonitorPage } from './app/pages/MonitorPage'
+import { MetricsPage } from './app/pages/MetricsPage'
 import { SettingsPage } from './app/pages/SettingsPage'
 import { LoginPage } from './app/pages/LoginPage'
 import { DashboardPage } from './app/pages/DashboardPage'
+import { TrashPage } from './app/pages/TrashPage'
 import { AuthProvider } from './app/context/AuthContext'
 
 export default function App() {
@@ -33,7 +35,9 @@ export default function App() {
                 <Route path="model-comparisons" element={<ModelComparisonsPage />} />
                 <Route path="pareto" element={<ParetoPage />} />
                 <Route path="monitor" element={<MonitorPage />} />
+                <Route path="metrics" element={<MetricsPage />} />
                 <Route path="settings" element={<SettingsPage />} />
+                <Route path="trash" element={<TrashPage />} />
             </Route>
         </Routes>
         <Toaster theme="dark" position="bottom-right" />

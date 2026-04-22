@@ -108,7 +108,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background transition-colors duration-300">
+    <div className="min-h-screen bg-background">
       <Topbar title="Settings" subtitle="Application configuration & environment management" />
       <div className="p-6 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         
@@ -227,6 +227,8 @@ export function SettingsPage() {
                     <div className="flex items-center gap-2">
                       <div className="relative">
                         <input
+                          name={apiItem.name}
+                          autoComplete="new-password"
                           type={showKeys[apiItem.name] ? "text" : "password"}
                           className="w-full sm:w-64 text-[0.8125rem] text-foreground font-mono bg-background border border-border focus:border-primary rounded-lg px-4 py-2 outline-none transition-all pr-10"
                           placeholder={apiItem.status === "active" ? "••••••••••••••••" : "Enter API key..."}

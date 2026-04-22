@@ -1,28 +1,22 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router";
 import { Topbar } from "../components/layout/Topbar";
 import { StatCard } from "../components/shared/StatCard";
 import { ChartCard } from "../components/shared/ChartCard";
 import { Badge } from "../components/shared/Badge";
 import { 
   FileText, Play, FlaskConical, DollarSign, Activity, 
-  ArrowUpRight, Plus, ExternalLink, Zap
+  ArrowUpRight, Plus, ExternalLink, Zap, BarChart3, Trash2
 } from "lucide-react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 import { api, type DashboardResponse } from "../../lib/api";
 
-const MOCK_TREND = [
-  { day: "Mon", cost: 12.5, runs: 120 },
-  { day: "Tue", cost: 15.2, runs: 145 },
-  { day: "Wed", cost: 10.8, runs: 110 },
-  { day: "Thu", cost: 18.4, runs: 180 },
-  { day: "Fri", cost: 22.1, runs: 210 },
-  { day: "Sat", cost: 14.3, runs: 135 },
-  { day: "Sun", cost: 11.2, runs: 105 },
-];
+
 
 export function DashboardPage() {
   const [stats, setStats] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadStats();
@@ -41,10 +35,12 @@ export function DashboardPage() {
 
     const isLight = document.documentElement.classList.contains('light');
     const chartColors = {
-      grid: isLight ? "#e2e8f0" : "#1c2130",
-      axis: isLight ? "#64748b" : "#475569",
-      tooltipBg: isLight ? "#ffffff" : "#09090f",
-      tooltipBorder: isLight ? "#e2e8f0" : "#1c2130"
+      grid: isLight ? "#f1f5f9" : "#1e293b",
+      axis: isLight ? "#94a3b8" : "#475569",
+      tooltipBg: isLight ? "#ffffff" : "#0f172a",
+      tooltipBorder: isLight ? "#e2e8f0" : "#1e293b",
+      primary: isLight ? "#0f172a" : "#ffffff",
+      secondary: isLight ? "#94a3b8" : "#475569"
     };
 
     return (
@@ -76,14 +72,14 @@ export function DashboardPage() {
               value={`$${(stats?.total_cost_usd || 0).toFixed(2)}`}
               subtitle="All deployments"
               icon={<DollarSign size={20} />}
-              valueColor="text-amber-400"
+              valueColor="text-foreground"
             />
             <StatCard
               title="Avg Performance"
-              value="88.2%"
+              value={stats?.avg_performance ? `${(stats.avg_performance * 100).toFixed(1)}%` : "N/A"}
               subtitle="Across all eval jobs"
               icon={<Activity size={20} />}
-              valueColor="text-emerald-400"
+              valueColor="text-foreground"
             />
           </div>
 
@@ -91,51 +87,49 @@ export function DashboardPage() {
             {/* Main Chart Area */}
             <div className="lg:col-span-2">
               <ChartCard 
-                title="Project ROI & Usage" 
-                subtitle="Daily execution volume and cost distribution"
+                title="Consumption History" 
+                subtitle="Daily execution volume and aggregate cost across all environments"
               >
-                <div className="h-[340px] mt-4">
+                <div className="h-[340px] mt-6">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={MOCK_TREND}>
-                      <defs>
-                        <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
+                    <BarChart data={stats?.trend || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} vertical={false} />
                       <XAxis 
                         dataKey="day" 
                         stroke={chartColors.axis} 
-                        fontSize={12} 
+                        fontSize={11} 
                         tickLine={false} 
                         axisLine={false} 
+                        dy={10}
+                        className="font-mono"
                       />
                       <YAxis 
                         stroke={chartColors.axis} 
-                        fontSize={12} 
+                        fontSize={11} 
                         tickLine={false} 
                         axisLine={false} 
                         tickFormatter={(v) => `$${v}`}
+                        className="font-mono"
                       />
                       <Tooltip 
+                        cursor={{ fill: isLight ? '#f8fafc' : '#1e293b', opacity: 0.4 }}
                         contentStyle={{ 
                           backgroundColor: chartColors.tooltipBg, 
                           border: `1px solid ${chartColors.tooltipBorder}`, 
-                          borderRadius: "8px",
-                          color: isLight ? "#1e293b" : "#ffffff",
-                          boxShadow: isLight ? "0 4px 6px -1px rgb(0 0 0 / 0.1)" : "none"
+                          borderRadius: "12px",
+                          padding: "12px",
+                          boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)"
                         }}
-                        itemStyle={{ fontSize: "12px", fontWeight: "600" }}
+                        labelStyle={{ color: isLight ? "#64748b" : "#94a3b8", fontSize: "11px", fontWeight: "600", marginBottom: "4px", textTransform: "uppercase" }}
+                        itemStyle={{ fontSize: "13px", fontWeight: "700", color: chartColors.primary, padding: "0" }}
                       />
-                      <Area 
-                        type="monotone" 
+                      <Bar 
                         dataKey="cost" 
-                        stroke="#6366f1" 
-                        fillOpacity={1} 
-                        fill="url(#colorCost)" 
+                        fill={chartColors.primary} 
+                        radius={[4, 4, 0, 0]} 
+                        barSize={32}
                       />
-                    </AreaChart>
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
               </ChartCard>
@@ -146,19 +140,25 @@ export function DashboardPage() {
               <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
                 <h3 className="text-sm font-semibold text-foreground mb-4 uppercase tracking-wider text-[0.6875rem]">Quick Actions</h3>
                 <div className="space-y-2">
-                  <button className="w-full flex items-center justify-between p-3 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-all text-sm group">
+                  <button 
+                    onClick={() => navigate("/prompts")}
+                    className="w-full flex items-center justify-between p-3 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-all text-sm group"
+                  >
                     <div className="flex items-center gap-3">
-                      <div className="p-1.5 bg-primary rounded-md text-primary-foreground group-hover:scale-110 transition-transform">
+                      <div className="p-1.5 bg-primary rounded-md text-primary-foreground transition-transform">
                         <Plus size={16} />
                       </div>
                       Create Prompt
                     </div>
                     <ArrowUpRight size={14} className="opacity-50" />
                   </button>
-                  <button className="w-full flex items-center justify-between p-3 rounded-lg bg-muted border border-border text-foreground hover:bg-accent transition-all text-sm group">
+                  <button 
+                    onClick={() => navigate("/eval-jobs")}
+                    className="w-full flex items-center justify-between p-3 rounded-lg bg-muted border border-border text-foreground hover:bg-accent transition-all text-sm group"
+                  >
                     <div className="flex items-center gap-3">
                       <div className="p-1.5 bg-background border border-border rounded-md text-foreground">
-                        <FlaskConical size={16} />
+                        <Play size={16} />
                       </div>
                       Run Evaluation
                     </div>

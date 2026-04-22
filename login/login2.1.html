@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Chronicle — Terminal Login (Light)</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#f8f9fb;--panel:#fff;--text:#111;--muted:#6a6f78;--accent:#111;--border:#d9dde3}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;display:flex;align-items:center;justify-content:center;min-height:100vh;overflow:hidden}
+#matrix-canvas{position:fixed;inset:0;z-index:0;opacity:.18;pointer-events:none}
+.login-wrapper{position:relative;z-index:10;width:100%;max-width:440px;padding:2rem}
+.card{background:var(--panel);border:1px solid var(--border);padding:2.5rem 2rem;box-shadow:8px 8px 0 rgba(17,17,17,.12);transition:.2s}
+.card:hover{transform:translate(-2px,-2px);box-shadow:10px 10px 0 rgba(17,17,17,.18)}
+.header{margin-bottom:2rem}.header h1{font-size:1.5rem;font-weight:700;margin-bottom:.5rem;display:flex;align-items:center;gap:10px}.header h1::before{content:'>';color:var(--accent)}
+.header p{color:var(--muted);font-size:.85rem;line-height:1.5}
+.oauth-btn{width:100%;padding:.8rem;margin-bottom:.8rem;background:transparent;border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:.85rem;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center;gap:10px}
+.oauth-btn:hover{background:#111;color:#fff}
+.divider{text-align:center;margin:1.5rem 0;color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:2px;position:relative}
+.divider::before,.divider::after{content:'';position:absolute;top:50%;width:35%;height:1px;background:var(--border)}
+.divider::before{left:0}.divider::after{right:0}
+.field{margin-bottom:1.2rem}.field label{display:block;font-size:.75rem;color:var(--muted);margin-bottom:.4rem}
+.field input{width:100%;padding:.8rem;background:#fff;border:1px solid var(--border);color:#111;font-family:inherit;font-size:.9rem}
+.field input:focus{outline:none;border-color:#111}
+.submit-btn{width:100%;padding:.9rem;margin-top:1rem;background:#111;border:none;color:#fff;font-family:inherit;font-weight:700;font-size:.9rem;cursor:pointer;text-transform:uppercase;transition:opacity .2s}
+.submit-btn:hover{opacity:.85}
+.footer{text-align:center;margin-top:1.5rem;font-size:.8rem;color:var(--muted)}
+.footer a{color:#111;text-decoration:none;border-bottom:1px solid transparent}.footer a:hover{border-bottom-color:#111}
+.cursor{display:inline-block;width:8px;height:1rem;background:#111;animation:blink 1s step-end infinite;vertical-align:middle;margin-left:5px}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+</style>
+</head>
+<body>
+<canvas id="matrix-canvas"></canvas>
+<div class="login-wrapper">
+  <div class="card">
+    <div class="header"><h1>CHRONICLE <span class="cursor"></span></h1><p>Initiate session. Access model registry and prompt ops dashboard.</p></div>
+    <button class="oauth-btn">Continue with GitHub</button>
+    <div class="divider">SYS.AUTH.LOCAL</div>
+    <form onsubmit="event.preventDefault(); alert('Auth protocol initiated.');">
+      <div class="field"><label>ROOT_EMAIL</label><input type="email" placeholder="sysadmin@domain.com" required/></div>
+      <div class="field"><label>SECURE_KEY</label><input type="password" placeholder="••••••••" required/></div>
+      <button type="submit" class="submit-btn">Execute Login</button>
+    </form>
+    <div class="footer">Unregistered node? <a href="#">Request clearance</a></div>
+  </div>
+</div>
+<script>
+const canvas=document.getElementById('matrix-canvas'),ctx=canvas.getContext('2d');canvas.width=innerWidth;canvas.height=innerHeight;
+const chars='01XYZABCDEFGH'.split(''),fontSize=14;let cols=Math.floor(canvas.width/fontSize),drops=Array.from({length:cols}).fill(1);
+function draw(){ctx.fillStyle='rgba(248,249,251,0.09)';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#111';ctx.font=fontSize+'px monospace';
+for(let i=0;i<drops.length;i++){const text=chars[Math.floor(Math.random()*chars.length)];ctx.fillText(text,i*fontSize,drops[i]*fontSize);if(drops[i]*fontSize>canvas.height&&Math.random()>.975)drops[i]=0;drops[i]++}}
+setInterval(draw,50);
+addEventListener('resize',()=>{canvas.width=innerWidth;canvas.height=innerHeight;cols=Math.floor(canvas.width/fontSize);drops=Array.from({length:cols}).fill(1);});
+</script>
+</body>
+</html>

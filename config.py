@@ -9,13 +9,19 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     secret_key: str = "dev-secret-key"
     api_key: str = "chronicle-dev-key"
+    cors_origins: list[str] = ["*"]
+    allowed_hosts: list[str] = ["*"]
 
     # LLM Configuration (Phase-1: Groq only)
     groq_api_key: str = ""
     default_llm_model: str = "llama-3.3-70b-versatile"
+    gemini_api_key: str = ""
 
-    class Config:
-        env_file = ".env"
+    model_config = {
+        "env_file": ".env",
+        "extra": "ignore",
+        "case_sensitive": False
+    }
 
 
 @lru_cache()

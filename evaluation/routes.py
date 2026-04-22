@@ -4,8 +4,8 @@ import json
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Header
-from sqlalchemy import select, func
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Header, Query
+from sqlalchemy import select, func, desc, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db import get_session
@@ -15,7 +15,7 @@ from .schemas import (
     BulkExampleCreate, CSVUploadResponse
 )
 
-router = APIRouter(prefix="/api/v1/eval", tags=["evaluation"])
+router = APIRouter(tags=["evaluation"])
 
 @router.post("/datasets", response_model=DatasetResponse, status_code=201)
 async def create_dataset(
@@ -44,9 +44,10 @@ async def list_datasets(
         )
         .outerjoin(DatasetExample, Dataset.dataset_id == DatasetExample.dataset_id)
         .where(
+            Dataset.deleted_at.is_(None),
             or_(
                 Dataset.created_by == x_chronicle_user,
-                Dataset.created_by == 'seed-script-a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4'
+                Dataset.created_by == 'seed-script' # Simplified seed identifier
             )
         )
         .group_by(Dataset.dataset_id)
@@ -68,7 +69,7 @@ async def get_dataset(dataset_id: UUID, db: AsyncSession = Depends(get_session))
             func.count(DatasetExample.example_id).label("example_count")
         )
         .outerjoin(DatasetExample, Dataset.dataset_id == DatasetExample.dataset_id)
-        .where(Dataset.dataset_id == dataset_id)
+        .where(Dataset.dataset_id == dataset_id, Dataset.deleted_at.is_(None))
         .group_by(Dataset.dataset_id)
     )
     result = await db.execute(stmt)
@@ -146,36 +147,46 @@ async def upload_csv(
     to_insert = []
     
     for row_idx, row in enumerate(reader, start=2): # header is row 1
-        expected = row.get("expected_output", "").strip()
-        if not expected:
-            skipped += 1
-            errors.append(f"Row {row_idx}: expected_output is empty")
-            continue
-            
-        input_vars_str = row.get("input_vars", "").strip()
         try:
+            # Handle empty lines or rows missing columns (row.get returns None in some cases)
+            expected = (row.get("expected_output") or "").strip()
+            if not expected:
+                skipped += 1
+                errors.append(f"Row {row_idx}: expected_output is empty")
+                continue
+                
+            input_vars_str = (row.get("input_vars") or "").strip()
+            if not input_vars_str:
+                skipped += 1
+                errors.append(f"Row {row_idx}: input_vars is empty")
+                continue
+
             input_vars = json.loads(input_vars_str)
             if not isinstance(input_vars, dict):
                 raise ValueError("Must be a JSON object")
+                
+            source_tag = (row.get("source_tag") or "").strip() or None
+            
+            to_insert.append(DatasetExample(
+                dataset_id=dataset.dataset_id,
+                input_vars=input_vars,
+                expected_output=expected,
+                source_tag=source_tag
+            ))
+            imported += 1
         except Exception as e:
             skipped += 1
-            errors.append(f"Row {row_idx}: Invalid JSON in input_vars - {str(e)}")
+            errors.append(f"Row {row_idx}: {str(e)}")
             continue
-            
-        source_tag = row.get("source_tag", "").strip() or None
-        
-        to_insert.append(DatasetExample(
-            dataset_id=dataset_id,
-            input_vars=input_vars,
-            expected_output=expected,
-            source_tag=source_tag
-        ))
-        imported += 1
         
     if to_insert:
         db.add_all(to_insert)
-        await db.commit()
-        
+        try:
+            await db.commit()
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(status_code=500, detail=f"Database error during insert: {str(e)}")
+            
     return {"imported": imported, "skipped": skipped, "errors": errors}
 
 @router.get("/datasets/{dataset_id}/examples", response_model=List[ExampleResponse])
@@ -186,21 +197,85 @@ async def list_examples(dataset_id: UUID, db: AsyncSession = Depends(get_session
         
     stmt = (
         select(DatasetExample)
-        .where(DatasetExample.dataset_id == dataset_id)
+        .where(
+            DatasetExample.dataset_id == dataset_id,
+            DatasetExample.deleted_at.is_(None)
+        )
         .order_by(DatasetExample.created_at.asc())
     )
     result = await db.execute(stmt)
     return result.scalars().all()
 
 @router.delete("/datasets/{dataset_id}", status_code=204)
-async def delete_dataset(dataset_id: UUID, db: AsyncSession = Depends(get_session)):
+async def delete_dataset(dataset_id: UUID, permanent: bool = False, db: AsyncSession = Depends(get_session)):
+    """Soft delete a dataset (Invisible Cloak). Permanent=True for immediate purging."""
     dataset = await db.get(Dataset, dataset_id)
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
         
-    await db.delete(dataset)
-    await db.commit()
+    if not permanent:
+        dataset.deleted_at = func.now()
+        # Soft delete children too
+        await db.execute(
+            update(DatasetExample)
+            .where(DatasetExample.dataset_id == dataset_id)
+            .values(deleted_at=func.now())
+        )
+        await db.commit()
+    else:
+        await db.delete(dataset)
+        await db.commit()
     return None
+
+@router.post("/datasets/{dataset_id}/restore", response_model=DatasetResponse)
+async def restore_dataset(dataset_id: UUID, db: AsyncSession = Depends(get_session)):
+    """Take the 'Invisible Cloak' off a dataset and its examples."""
+    dataset = await db.get(Dataset, dataset_id)
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    
+    dataset.deleted_at = None
+    await db.execute(
+        update(DatasetExample)
+        .where(DatasetExample.dataset_id == dataset_id)
+        .values(deleted_at=None)
+    )
+    await db.commit()
+    await db.refresh(dataset)
+    return {**dataset.__dict__, "example_count": 0, "deleted_at": dataset.deleted_at} # Simplified count
+
+@router.get("/datasets/trash/all", response_model=List[DatasetResponse])
+async def list_trashed_datasets(
+    db: AsyncSession = Depends(get_session),
+    x_chronicle_user: str = Header(default="", alias="X-Chronicle-User")
+):
+    """List all soft-deleted datasets for the user."""
+    user_id = x_chronicle_user or "legacy-user"
+    
+    stmt = (
+        select(Dataset)
+        .where(
+            Dataset.deleted_at.is_not(None),
+            Dataset.created_by == user_id
+        )
+        .order_by(desc(Dataset.deleted_at))
+    )
+    result = await db.execute(stmt)
+    datasets = result.scalars().all()
+    
+    return [
+        {
+            "dataset_id": d.dataset_id,
+            "name": d.name,
+            "description": d.description,
+            "task_type": d.task_type,
+            "created_by": d.created_by,
+            "created_at": d.created_at,
+            "deleted_at": d.deleted_at,
+            "example_count": 0  # Simplified for trash view
+        }
+        for d in datasets
+    ]
 
 from fastapi import BackgroundTasks, Request
 from version_control.models import Prompt, PromptVersion
@@ -213,12 +288,23 @@ async def list_jobs(
     db: AsyncSession = Depends(get_session),
     x_chronicle_user: str = Header(default="legacy-user", alias="X-Chronicle-User")
 ):
-    stmt = select(EvalJob).where(EvalJob.created_by == x_chronicle_user).order_by(EvalJob.created_at.desc())
+    from .models import EvalSummary
+    stmt = (
+        select(EvalJob, EvalSummary)
+        .outerjoin(EvalSummary, EvalJob.job_id == EvalSummary.job_id)
+        .where(EvalJob.created_by == x_chronicle_user)
+        .order_by(EvalJob.created_at.desc())
+    )
     result = await db.execute(stmt)
-    jobs = result.scalars().all()
+    rows = result.all()
+    
     return [
-        EvalJobResponse.model_validate({**j.__dict__, "status": j.status})
-        for j in jobs
+        EvalJobResponse.model_validate({
+            **row.EvalJob.__dict__, 
+            "status": row.EvalJob.status,
+            "summary": row.EvalSummary
+        })
+        for row in rows
     ]
 
 @router.post("/jobs", response_model=EvalJobResponse, status_code=201)
@@ -259,11 +345,23 @@ async def create_job(
 
 @router.get("/jobs/{job_id}", response_model=EvalJobResponse)
 async def get_job(job_id: UUID, db: AsyncSession = Depends(get_session)):
-    job = await db.get(EvalJob, job_id)
-    if not job:
+    from .models import EvalSummary
+    stmt = (
+        select(EvalJob, EvalSummary)
+        .outerjoin(EvalSummary, EvalJob.job_id == EvalSummary.job_id)
+        .where(EvalJob.job_id == job_id)
+    )
+    result = await db.execute(stmt)
+    row = result.first()
+    
+    if not row:
         raise HTTPException(status_code=404, detail="EvalJob not found")
-    # status is already a plain string
-    return {**job.__dict__, "status": job.status}
+        
+    return {
+        **row.EvalJob.__dict__, 
+        "status": row.EvalJob.status,
+        "summary": row.EvalSummary
+    }
 
 @router.get("/jobs/{job_id}/results", response_model=List[EvalResultResponse])
 async def get_job_results(job_id: UUID, db: AsyncSession = Depends(get_session)):
@@ -642,6 +740,43 @@ async def get_dashboard(
         select(func.coalesce(func.sum(Run.cost_usd), 0.0)).where(Run.created_by == x_chronicle_user)
     )).scalar() or 0.0
     
+    # Calculate trend for last 7 days
+    from datetime import datetime, timedelta, timezone
+    now = datetime.now(timezone.utc)
+    trend = []
+    for i in range(6, -1, -1):
+        day = now - timedelta(days=i)
+        day_start = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
+        day_end = day_start + timedelta(days=1)
+        
+        day_runs = (await db.execute(
+            select(func.count(Run.run_id)).where(
+                Run.created_by == x_chronicle_user,
+                Run.created_at >= day_start,
+                Run.created_at < day_end
+            )
+        )).scalar() or 0
+        
+        day_cost = (await db.execute(
+            select(func.coalesce(func.sum(Run.cost_usd), 0.0)).where(
+                Run.created_by == x_chronicle_user,
+                Run.created_at >= day_start,
+                Run.created_at < day_end
+            )
+        )).scalar() or 0.0
+        
+        trend.append({
+            "day": day.strftime("%a"),
+            "cost": float(day_cost),
+            "runs": int(day_runs)
+        })
+
+    # Avg Accuracy across all completed jobs
+    from .models import EvalSummary
+    avg_acc = (await db.execute(
+        select(func.avg(EvalSummary.accuracy)).where(EvalSummary.accuracy.is_not(None))
+    )).scalar() or 0.0
+
     return {
         "total_prompts": total_prompts,
         "total_versions": total_versions,
@@ -649,6 +784,8 @@ async def get_dashboard(
         "total_eval_jobs": total_eval_jobs,
         "total_datasets": total_datasets,
         "total_cost_usd": float(total_cost),
+        "avg_performance": float(avg_acc),
+        "trend": trend
     }
 
 @router.get("/jobs/{job_id}/report")

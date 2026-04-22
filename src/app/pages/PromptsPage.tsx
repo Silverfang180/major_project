@@ -68,12 +68,13 @@ function TokenBar({ text, modelJson }: { text: string; modelJson: string }) {
 
 // ── Version Timeline Card ─────────────────────────────────────────────────────
 function VersionCard({
-  version, isProduction, isLatest, onPromote, promptId, promoting
+  version, isProduction, isLatest, onPromote, onSelect, promptId, promoting
 }: {
   version: VersionResponse;
   isProduction: boolean;
   isLatest: boolean;
   onPromote: (promptId: string, versionId: number) => void;
+  onSelect: (v: VersionResponse) => void;
   promptId: string;
   promoting: boolean;
 }) {
@@ -90,8 +91,11 @@ function VersionCard({
         {isProduction && <div className="w-2 h-2 rounded-full bg-emerald-500" />}
       </div>
 
-      <div className={`bg-card border rounded-xl p-4 shadow-sm transition-all hover:shadow-md
-        ${isProduction ? "border-emerald-500/30" : "border-border"}`}>
+      <div 
+        onClick={() => onSelect(version)}
+        className={`bg-card border rounded-xl p-4 shadow-sm transition-all hover:shadow-md cursor-pointer hover:border-primary/50 group
+        ${isProduction ? "border-emerald-500/30" : "border-border"}`}
+      >
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-foreground font-bold text-lg font-mono">v{version.ordinal}</span>
@@ -120,7 +124,7 @@ function VersionCard({
             <button
               onClick={() => onPromote(promptId, version.version_id)}
               disabled={promoting}
-              className="px-3 py-1 text-[0.75rem] border border-indigo-500/40 text-primary rounded-full hover:bg-primary/10 transition-colors disabled:opacity-40"
+              className="px-3 py-1 text-[0.75rem] border border-border text-primary rounded-full hover:bg-primary/10 transition-colors disabled:opacity-40"
             >
               {promoting ? "Promoting…" : "Promote →"}
             </button>
@@ -158,6 +162,7 @@ export function PromptsPage() {
 
   // Model Settings Visual State
   const [showAdvancedModel, setShowAdvancedModel] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Create prompt modal
   const [createOpen, setCreateOpen] = useState(false);
@@ -288,6 +293,29 @@ export function PromptsPage() {
     finally { setPromoting(false); }
   }
 
+  async function handleDeletePrompt(promptId: string) {
+    if (!confirm("Are you sure you want to move this prompt to trash?")) return;
+    setIsDeleting(true);
+    try {
+      await api.deletePrompt(promptId);
+      toast.success("Prompt moved to trash");
+      setSelectedPrompt(null);
+      await loadPrompts();
+    } catch (e: any) {
+      toast.error("Failed to delete: " + e.message);
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  function selectVersion(v: VersionResponse) {
+    setVPromptText(v.prompt_text);
+    if (v.model_settings) {
+      setVModelJson(JSON.stringify(v.model_settings, null, 2));
+    }
+    toast.info(`Loaded version v${v.ordinal} into editor`);
+  }
+
   async function handleExecute() {
     if (!selectedPrompt || !selectedPrompt.production_version_id) {
       toast.error("Run failed: You must promote a version to production first.");
@@ -344,9 +372,21 @@ export function PromptsPage() {
         <Topbar
           title={selectedPrompt.title}
           subtitle={
-            <code className="text-primary text-[0.75rem] font-mono bg-primary/10 px-2 py-0.5 rounded">
-              {selectedPrompt.key}
-            </code>
+            <div className="flex items-center gap-2">
+              <code className="text-primary text-[0.7rem] font-mono bg-primary/10 px-2 py-0.5 rounded opacity-60">
+                {selectedPrompt.key.slice(0, 6)}...{selectedPrompt.key.slice(-4)}
+              </code>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(selectedPrompt.key);
+                  toast.success("Key copied to clipboard");
+                }}
+                className="p-1 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-primary"
+                title="Copy full prompt key"
+              >
+                <Copy size={12} />
+              </button>
+            </div>
           }
         />
 
@@ -367,11 +407,33 @@ export function PromptsPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <h2 className="text-foreground font-bold text-xl mb-1">{selectedPrompt.title}</h2>
-                  <code className="text-[0.75rem] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">{selectedPrompt.key}</code>
+                  <div className="flex items-center gap-2">
+                    <code className="text-[0.7rem] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                      {selectedPrompt.key}
+                    </code>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedPrompt.key);
+                        toast.success("Key copied to clipboard");
+                      }}
+                      className="text-muted-foreground hover:text-primary"
+                    >
+                      <Copy size={12} />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 text-[0.75rem] text-muted-foreground">
-                  <span className="flex items-center gap-1"><GitBranch size={12} /> {versions.length} versions</span>
-                  {prodVersionId && <Badge variant="success">has production</Badge>}
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 text-[0.75rem] text-muted-foreground border-r pr-3">
+                    <span className="flex items-center gap-1"><GitBranch size={12} /> {versions.length} versions</span>
+                    {prodVersionId && <Badge variant="success">has production</Badge>}
+                  </div>
+                  <button
+                    onClick={() => handleDeletePrompt(selectedPrompt.prompt_id)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors border border-transparent hover:border-rose-500/20"
+                  >
+                    <Trash2 size={13} />
+                    Delete
+                  </button>
                 </div>
               </div>
             </div>
@@ -392,7 +454,7 @@ export function PromptsPage() {
                     value={vPromptText}
                     onChange={e => setVPromptText(e.target.value)}
                     rows={8}
-                    className="w-full bg-background border border-slate-700 focus:border-indigo-500 rounded-lg px-4 py-3 text-[0.8125rem] text-foreground font-mono outline-none resize-y transition-colors placeholder:text-slate-600"
+                    className="w-full bg-background border border-border focus:border-primary rounded-lg px-4 py-3 text-[0.8125rem] text-foreground font-mono outline-none resize-y transition-colors placeholder:text-muted-foreground/30"
                     placeholder="Enter your prompt text… Use {{variable}} for injected values"
                   />
                   <TokenBar text={vPromptText} modelJson={vModelJson} />
@@ -406,7 +468,7 @@ export function PromptsPage() {
                     </label>
                     <button 
                       onClick={() => setShowAdvancedModel(!showAdvancedModel)}
-                      className="text-[0.6875rem] text-primary hover:text-indigo-300 uppercase tracking-wider font-semibold"
+                      className="text-[0.6875rem] text-primary hover:opacity-80 uppercase tracking-wider font-semibold"
                     >
                       {showAdvancedModel ? "Simple View" : "Advanced JSON"}
                     </button>
@@ -417,7 +479,7 @@ export function PromptsPage() {
                       value={vModelJson}
                       onChange={e => setVModelJson(e.target.value)}
                       rows={3}
-                      className="w-full bg-background border border-slate-700 focus:border-indigo-500 rounded-lg px-4 py-3 text-[0.8125rem] text-slate-300 font-mono outline-none resize-y transition-colors"
+                      className="w-full bg-background border border-border focus:border-primary rounded-lg px-4 py-3 text-[0.8125rem] text-foreground font-mono outline-none resize-y transition-colors"
                       placeholder='{"model":"llama-3.3-70b-versatile","temperature":0.7}'
                     />
                   ) : (
@@ -444,11 +506,11 @@ export function PromptsPage() {
                           min="0" max="2" step="0.05"
                           value={currentTemp}
                           onChange={e => handleVisualTempChange(parseFloat(e.target.value))}
-                          className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                          className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary transition-all"
                         />
                         <div className="flex items-center justify-between mt-1 px-1">
-                          <span className="text-[0.65rem] text-slate-600">Focused</span>
-                          <span className="text-[0.65rem] text-slate-600">Creative</span>
+                          <span className="text-[0.65rem] text-muted-foreground/60 font-medium">Focused</span>
+                          <span className="text-[0.65rem] text-muted-foreground/60 font-medium">Creative</span>
                         </div>
                       </div>
                     </div>
@@ -463,7 +525,7 @@ export function PromptsPage() {
                   <input
                     value={vChangeNote}
                     onChange={e => setVChangeNote(e.target.value)}
-                    className="w-full bg-background border border-slate-700 focus:border-indigo-500 rounded-lg px-4 py-2.5 text-[0.8125rem] text-foreground outline-none transition-colors placeholder:text-slate-600"
+                    className="w-full bg-background border border-border focus:border-primary rounded-lg px-4 py-2.5 text-[0.8125rem] text-foreground outline-none transition-colors placeholder:text-muted-foreground/30"
                     placeholder="Describe what changed in this version…"
                   />
                 </div>
@@ -477,7 +539,7 @@ export function PromptsPage() {
                 <button
                   onClick={handleCreateVersion}
                   disabled={vSaving || !vPromptText.trim()}
-                  className="w-full py-3 bg-primary hover:bg-indigo-500 disabled:opacity-40 text-foreground font-semibold text-[0.8125rem] uppercase tracking-wider rounded-lg transition-colors flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-primary hover:opacity-90 disabled:opacity-40 text-primary-foreground font-semibold text-[0.8125rem] uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2"
                 >
                   {vSaving ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : "Create New Version"}
                 </button>
@@ -527,7 +589,7 @@ export function PromptsPage() {
                   <button
                     onClick={handleExecute}
                     disabled={executing || !prodVersionId}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-foreground font-semibold text-[0.8125rem] uppercase tracking-wider rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:opacity-90 disabled:opacity-40 text-primary-foreground font-semibold text-[0.8125rem] uppercase tracking-wider rounded-lg transition-all"
                   >
                     {executing ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
                     {executing ? "Sending…" : "Execute"}
@@ -584,6 +646,7 @@ export function PromptsPage() {
                     isProduction={prodVersionId === v.version_id}
                     isLatest={i === 0}
                     onPromote={handlePromote}
+                    onSelect={selectVersion}
                     promptId={selectedPrompt.prompt_id}
                     promoting={promoting}
                   />
@@ -659,11 +722,10 @@ export function PromptsPage() {
             <table className="w-full">
               <thead className="sticky top-0 z-10 bg-muted/30">
                 <tr className="border-b border-border text-muted-foreground uppercase text-[0.6875rem] font-bold tracking-wider">
-                  <th className="text-left px-4 py-4">Prompt Key</th>
                   <th className="text-left px-4 py-4">Title</th>
                   <th className="text-left px-4 py-4">Status</th>
                   <th className="text-left px-4 py-4">Updated</th>
-                  <th className="text-right px-4 py-4"></th>
+                  <th className="text-right px-4 py-4">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -686,26 +748,30 @@ export function PromptsPage() {
                 ) : filtered.map(p => (
                   <tr
                     key={p.prompt_id}
-                    className="border-b border-slate-700/30 table-row-hover"
+                    className="border-b border-slate-700/30 table-row-hover group/row"
                     onClick={() => openPrompt(p)}
                   >
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                         {p.production_version_id && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(74,222,128,0.6)]" />
+                          <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(74,222,128,0.6)] shrink-0" />
                         )}
-                        <code className="text-[0.8125rem] text-primary bg-primary/10 px-2 py-0.5 rounded">
-                          {p.key}
-                        </code>
-                        <button
-                          onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(p.key); }}
-                          className="text-slate-600 hover:text-muted-foreground"
-                        >
-                          <Copy size={12} />
-                        </button>
+                        <span className="text-[0.8125rem] text-foreground font-semibold">{p.title}</span>
+                        <div className="flex items-center gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                          <button
+                            onClick={e => { 
+                              e.stopPropagation(); 
+                              navigator.clipboard.writeText(p.key);
+                              toast.success("Key copied");
+                            }}
+                            className="p-1 hover:bg-primary/10 rounded transition-colors text-muted-foreground hover:text-primary"
+                            title="Copy Key"
+                          >
+                            <Copy size={11} />
+                          </button>
+                        </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-[0.8125rem] text-slate-300">{p.title}</td>
                     <td className="px-4 py-3">
                       {p.production_version_id
                         ? <Badge variant="success">production</Badge>
@@ -714,11 +780,20 @@ export function PromptsPage() {
                           : <Badge variant="neutral">empty</Badge>
                       }
                     </td>
-                    <td className="px-4 py-3 text-[0.8125rem] text-slate-500">
+                    <td className="px-4 py-3 text-[0.8125rem] text-slate-500 font-mono">
                       {new Date(p.updated_at || p.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <ChevronRight size={14} className="text-slate-600 inline" />
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={e => { e.stopPropagation(); handleDeletePrompt(p.prompt_id); }}
+                          className="p-2 hover:bg-rose-500/10 rounded-lg text-muted-foreground hover:text-rose-500 opacity-0 group-hover/row:opacity-100 transition-all"
+                          title="Move to Trash"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                        <ChevronRight size={14} className="text-muted-foreground" />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -744,7 +819,7 @@ export function PromptsPage() {
             <button
               onClick={handleCreate}
               disabled={creating || !newTitle.trim()}
-              className="px-5 py-2 text-[0.8125rem] bg-primary hover:bg-indigo-500 disabled:opacity-40 text-foreground rounded-lg flex items-center gap-2"
+              className="px-6 py-2.5 text-[0.8125rem] bg-primary hover:opacity-90 disabled:opacity-40 text-primary-foreground font-bold rounded-xl flex items-center gap-2 transition-all shadow-sm active:scale-95"
             >
               {creating ? <><Loader2 size={13} className="animate-spin" /> Creating…</> : "Create"}
             </button>

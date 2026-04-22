@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Chronicle — Data Flow (Light)</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #f5f7fb;
+    --text: #111827;
+    --muted: #5f6b7a;
+    --accent: #121826;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    overflow: hidden;
+  }
+  #waves {
+    position: fixed; right: 0; top: 0; width: 60%; height: 100%; z-index: 0;
+  }
+  .auth-panel {
+    position: relative; z-index: 10;
+    width: 40%; min-width: 400px;
+    background: rgba(255,255,255,0.82);
+    backdrop-filter: blur(18px);
+    border-right: 1px solid rgba(17,24,39,0.1);
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 4rem;
+    box-shadow: 20px 0 40px rgba(17,24,39,0.08);
+  }
+  .logo { font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; font-weight: 700; color: #2b3b57; margin-bottom: 3rem; }
+  h1 { font-size: 2.2rem; font-weight: 600; margin-bottom: 0.5rem; letter-spacing: -0.03em; }
+  p { color: var(--muted); font-size: 0.95rem; margin-bottom: 2.5rem; line-height: 1.6; }
+  .input-group { margin-bottom: 1.5rem; }
+  .input-group label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 1px; }
+  .input-group input {
+    width: 100%; padding: 1rem;
+    background: #fff;
+    border: 1px solid rgba(17,24,39,0.16);
+    border-radius: 8px; color: var(--text); font-size: 1rem; transition: all .25s;
+  }
+  .input-group input:focus { outline: none; border-color: #3f5f94; box-shadow: 0 0 0 3px rgba(63,95,148,.12); }
+  .submit-btn {
+    width: 100%; padding: 1rem; margin-top: 1rem;
+    background: #121826; color: #fff;
+    border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer;
+    transition: transform .2s, box-shadow .2s;
+  }
+  .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(17,24,39,.18); }
+  @media (max-width: 900px) {
+    .auth-panel { width: 100%; min-width: 100%; padding: 2rem; border-right: none; }
+    #waves { width: 100%; opacity: .35; }
+  }
+</style>
+</head>
+<body>
+<div class="auth-panel">
+  <div class="logo">c/major_project</div>
+  <h1>Welcome back.</h1>
+  <p>Sign in to access your data models and deployment infrastructure.</p>
+  <form onsubmit="event.preventDefault();">
+    <div class="input-group">
+      <label>Email Address</label>
+      <input type="email" placeholder="hello@example.com" required/>
+    </div>
+    <div class="input-group">
+      <label>Password</label>
+      <input type="password" placeholder="••••••••" required/>
+    </div>
+    <button type="submit" class="submit-btn">Sign In</button>
+  </form>
+</div>
+<canvas id="waves"></canvas>
+
+<script>
+  const canvas = document.getElementById('waves');
+  const ctx = canvas.getContext('2d');
+  let w, h, time = 0;
+
+  function resize() {
+    w = canvas.width = window.innerWidth * (window.innerWidth > 900 ? 0.6 : 1);
+    h = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function draw() {
+    ctx.fillStyle = 'rgba(245,247,251,0.14)';
+    ctx.fillRect(0, 0, w, h);
+
+    const lines = 26;
+    const amplitude = 54;
+    const frequency = 0.0032;
+    ctx.lineWidth = 1;
+
+    for (let i = 0; i < lines; i++) {
+      ctx.beginPath();
+
+      const p = i / lines;
+      const g = Math.floor(30 + p * 130); // grayscale ramp
+      const alpha = 0.08 + (p * 0.24);
+      ctx.strokeStyle = `rgba(${g}, ${g+6}, ${g+14}, ${alpha})`;
+
+      for (let x = 0; x <= w; x += 10) {
+        const yOffset = i * (h / lines);
+        const n1 = Math.sin(x * frequency + time + i * 0.22) * amplitude;
+        const n2 = Math.cos(x * frequency * 0.52 - time * 0.5 + i * 0.12) * (amplitude * 0.5);
+        const y = yOffset + n1 + n2;
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    time += 0.015;
+    requestAnimationFrame(draw);
+  }
+  draw();
+</script>
+</body>
+</html>

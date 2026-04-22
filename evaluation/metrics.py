@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 import math
 import statistics
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -136,7 +136,7 @@ async def compute_summary(job_id: UUID, db: "AsyncSession") -> EvalSummary:
         existing.mce = mce
         existing.overconfidence_rate = overconfidence_rate
         existing.underconfidence_rate = underconfidence_rate
-        existing.computed_at = datetime.utcnow()
+        existing.computed_at = datetime.now(timezone.utc)
         summary = existing
     else:
         summary = EvalSummary(
@@ -208,7 +208,7 @@ def compute_pareto_frontier(summaries: list[EvalSummary], dimension: str = "cost
             "mce": s.mce,
             "overconfidence_rate": s.overconfidence_rate,
             "underconfidence_rate": s.underconfidence_rate,
-            "computed_at": s.computed_at.isoformat() if s.computed_at else None,
+            "computed_at": datetime.now(timezone.utc).isoformat(),
             "is_pareto_optimal": False,
             "dominates": [],
             "dominated_by": [],
@@ -323,7 +323,7 @@ def identify_knee_point(pareto_results: list[dict], dimension: str = "cost") -> 
             knee = d
 
     if knee is not None:
-        knee = dict(knee)
+        knee = knee.copy()
         knee["is_knee_point"] = True
 
     return knee

@@ -58,3 +58,5 @@ chronicle.db
 Frontend
 node_modules
 irrelevant/
+.vite/
+alembic_out.txt

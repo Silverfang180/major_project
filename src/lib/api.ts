@@ -183,16 +183,20 @@ export interface DashboardResponse {
     total_eval_jobs: number;
     total_datasets: number;
     total_cost_usd: number;
+    avg_performance?: number;
+    trend?: { day: string, cost: number, runs: number }[];
 }
 
 // ---------- Helpers ----------
 
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
+    const token = localStorage.getItem('chronicle-token');
+    
     const res = await fetch(url, {
         ...options,
         headers: {
             'Content-Type': 'application/json',
-            'X-API-Key': 'chronicle-dev-key',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
             'X-Chronicle-Env': localStorage.getItem('chronicle-env') || 'production',
             'X-Chronicle-User': await getIdentity(),
             ...(options?.headers || {}),
@@ -282,6 +286,14 @@ export const api = {
 
     async restorePrompt(promptId: string): Promise<any> {
         return apiFetch(`${VC_BASE}/prompts/${promptId}/restore`, { method: 'POST' });
+    },
+
+    async getTrashedDatasets(): Promise<DatasetResponse[]> {
+        return apiFetch(`${EVAL_BASE}/datasets/trash/all`);
+    },
+
+    async restoreDataset(datasetId: string): Promise<any> {
+        return apiFetch(`${EVAL_BASE}/datasets/${datasetId}/restore`, { method: 'POST' });
     },
 
     // Execution
@@ -382,6 +394,29 @@ export const api = {
         return apiFetch(`${EVAL_BASE}/datasets/${datasetId}/leaderboard`);
     },
 
+    // Auth
+    async login(email: string, password: string): Promise<any> {
+        const data: any = await apiFetch(`${EXEC_BASE}/auth/login`, {
+            method: 'POST',
+            body: JSON.stringify({ email, password }),
+        });
+        if (data?.access_token) {
+            localStorage.setItem('chronicle-token', data.access_token);
+        }
+        return data;
+    },
+
+    async register(email: string, password: string, name: string): Promise<any> {
+        const data: any = await apiFetch(`${EXEC_BASE}/auth/register`, {
+            method: 'POST',
+            body: JSON.stringify({ email, password, name }),
+        });
+        if (data?.access_token) {
+            localStorage.setItem('chronicle-token', data.access_token);
+        }
+        return data;
+    },
+
     // Runs (from execution module)
     async getRuns(): Promise<RunResponse[]> {
         const raw: any[] = await apiFetch(`${EXEC_BASE}/runs`);
@@ -400,11 +435,31 @@ export const api = {
         return apiFetch(`${EXEC_BASE}/config/keys`);
     },
 
-    async updateApiKey(name: string, key: string): Promise<any> {
-        return apiFetch(`${EXEC_BASE}/config/keys`, {
+    // updateApiKey removed for security - config managed via .env
+
+    async uploadExamplesCsv(dataset_id: string, file: File): Promise<any> {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const token = localStorage.getItem('chronicle-token');
+        const res = await fetch(`${EVAL_BASE}/datasets/${dataset_id}/examples/upload-csv`, {
             method: 'POST',
-            body: JSON.stringify({ name, key }),
+            headers: {
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+                'X-Chronicle-User': await getIdentity(),
+            },
+            body: formData,
         });
+        
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`Upload failed: ${text}`);
+        }
+        return res.json();
+    },
+
+    async getMetricsSummary(): Promise<any> {
+        return apiFetch(`${EXEC_BASE}/metrics/summary`);
     },
 
     // Health
