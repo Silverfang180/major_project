@@ -46,6 +46,7 @@ export interface PromptResponse {
 export interface VersionResponse {
     version_id: number;
     prompt_id: string;
+    prompt_title?: string;
     ordinal: number;
     prompt_text: string;
     change_note?: string;
@@ -191,6 +192,8 @@ export interface DashboardResponse {
 
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
     const token = localStorage.getItem('chronicle-token');
+    const geminiKey = localStorage.getItem('chronicle-key-Google Gemini');
+    const groqKey = localStorage.getItem('chronicle-key-Groq');
     
     const res = await fetch(url, {
         ...options,
@@ -199,12 +202,19 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
             ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
             'X-Chronicle-Env': localStorage.getItem('chronicle-env') || 'production',
             'X-Chronicle-User': await getIdentity(),
+            ...(geminiKey ? { 'X-Gemini-Key': geminiKey } : {}),
+            ...(groqKey ? { 'X-Groq-Key': groqKey } : {}),
             ...(options?.headers || {}),
         },
     });
     if (!res.ok) {
         const text = await res.text().catch(() => '');
-        throw new Error(`API error ${res.status}: ${text || res.statusText}`);
+        let errorMsg = text;
+        try {
+            const parsed = JSON.parse(text);
+            errorMsg = parsed.detail || text;
+        } catch { /* use status text */ }
+        throw new Error(errorMsg || res.statusText);
     }
     // Handle 204 No Content
     if (res.status === 204) return undefined as unknown as T;
@@ -288,6 +298,14 @@ export const api = {
         return apiFetch(`${VC_BASE}/prompts/${promptId}/restore`, { method: 'POST' });
     },
 
+    async getTrashedVersions(): Promise<VersionResponse[]> {
+        return apiFetch(`${VC_BASE}/versions/trash/all`);
+    },
+
+    async restoreVersion(versionId: number): Promise<any> {
+        return apiFetch(`${VC_BASE}/versions/${versionId}/restore`, { method: 'POST' });
+    },
+
     async getTrashedDatasets(): Promise<DatasetResponse[]> {
         return apiFetch(`${EVAL_BASE}/datasets/trash/all`);
     },
@@ -301,6 +319,18 @@ export const api = {
         return apiFetch(`${EXEC_BASE}/execute/${promptKey}`, {
             method: 'POST',
             body: JSON.stringify({ variables }),
+        });
+    },
+
+    async runSimulation(promptText: string, provider: string, model: string, variables: Record<string, any> = {}): Promise<any> {
+        return apiFetch(`${EXEC_BASE}/simulate`, {
+            method: 'POST',
+            body: JSON.stringify({
+                prompt_text: promptText,
+                provider,
+                model,
+                input_vars: variables
+            }),
         });
     },
 
@@ -323,8 +353,9 @@ export const api = {
         });
     },
 
-    async deleteDataset(datasetId: string): Promise<void> {
-        await apiFetch(`${EVAL_BASE}/datasets/${datasetId}`, { method: 'DELETE' });
+    async deleteDataset(datasetId: string, permanent = false): Promise<void> {
+        const url = `${EVAL_BASE}/datasets/${datasetId}${permanent ? '?permanent=true' : ''}`;
+        await apiFetch(url, { method: 'DELETE' });
     },
 
     async getExamples(datasetId: string): Promise<ExampleResponse[]> {

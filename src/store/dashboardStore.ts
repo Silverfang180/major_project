@@ -74,7 +74,7 @@ export const stringifyMessages = (messages: Message[]): string => {
     return messages.map(m => `<${m.role}>\n${m.content}\n</${m.role}>`).join('\n\n');
 };
 
-export const useDashboardStore = create<DashboardState>((set) => ({
+export const useDashboardStore = create<DashboardState>()((set) => ({
     // Selection
     activePromptId: '',
     currentVersionId: '',
@@ -97,23 +97,23 @@ export const useDashboardStore = create<DashboardState>((set) => ({
     output: '',
     trace: null,
 
-    setActivePromptId: (id) => set({ activePromptId: id }),
-    setCurrentVersionId: (id) => set({ currentVersionId: id }),
-    setConfig: (config) => set((state) => ({ ...state, ...config })),
-    setMessages: (messages) => set({ messages }),
-    addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
-    updateMessage: (id, content) => set((state) => ({
-        messages: state.messages.map(m => m.id === id ? { ...m, content } : m)
+    setActivePromptId: (id: string) => set({ activePromptId: id }),
+    setCurrentVersionId: (id: string) => set({ currentVersionId: id }),
+    setConfig: (config) => set((state: DashboardState) => ({ ...state, ...config })),
+    setMessages: (messages: Message[]) => set({ messages }),
+    addMessage: (message: Message) => set((state: DashboardState) => ({ messages: [...state.messages, message] })),
+    updateMessage: (id: string, content: string) => set((state: DashboardState) => ({
+        messages: state.messages.map((m: Message) => m.id === id ? { ...m, content } : m)
     })),
-    removeMessage: (id) => set((state) => ({
-        messages: state.messages.filter(m => m.id !== id)
+    removeMessage: (id: string) => set((state: DashboardState) => ({
+        messages: state.messages.filter((m: Message) => m.id !== id)
     })),
-    setOutput: (output) => set({ output }),
-    setStreaming: (isStreaming) => set({ isStreaming }),
-    setTrace: (trace) => set({ trace }),
+    setOutput: (output: string) => set({ output }),
+    setStreaming: (isStreaming: boolean) => set({ isStreaming }),
+    setTrace: (trace: any) => set({ trace }),
 
-    loadVersionData: (promptText, modelSettings) => {
-        set((state) => {
+    loadVersionData: (promptText: string, modelSettings?: any) => {
+        set((state: DashboardState) => {
             const parsedMessages = parsePromptText(promptText);
             const settings = modelSettings || {};
             return {

@@ -13,7 +13,7 @@ export const EvaluatorsPage: React.FC = () => {
     const loadDashboard = async () => {
         setIsLoading(true);
         try {
-            const data = await api.getEvalDashboard();
+            const data = await api.getDashboard();
             setStats(data);
         } catch (e) {
             console.error('Failed to load eval dashboard', e);

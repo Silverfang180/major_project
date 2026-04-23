@@ -24,7 +24,7 @@ from .models import EvalJob, EvalResult, DatasetExample, JobStatus
 logger = logging.getLogger(__name__)
 
 
-async def run_eval_job(job_id: UUID, api_key: str):
+async def run_eval_job(job_id: UUID, api_keys: dict):
     """
     Background task. Executes all examples in the job's dataset against the
     pinned version using direct internal calls (no HTTP).
@@ -40,7 +40,7 @@ async def run_eval_job(job_id: UUID, api_key: str):
                 return
 
             job.status = JobStatus.running
-            job.started_at = datetime.now(timezone.utc)
+            job.started_at = datetime.utcnow()
             await db.commit()
 
             # Fetch version once — all examples use the same version
@@ -90,6 +90,8 @@ async def run_eval_job(job_id: UUID, api_key: str):
                         model=model,
                         temperature=temperature,
                         max_tokens=max_tokens,
+                        gemini_api_key=api_keys.get("gemini"),
+                        groq_api_key=api_keys.get("groq")
                     )
 
                     usage = llm_result.get("usage", {})
@@ -145,14 +147,14 @@ async def run_eval_job(job_id: UUID, api_key: str):
                     # Continue to next example
 
             job.status = JobStatus.completed
-            job.completed_at = datetime.now(timezone.utc)
+            job.completed_at = datetime.utcnow()
             await db.commit()
 
             # Run evaluators on in-memory result objects (no re-fetch)
             if accepted_results:
                 from evaluation.evaluators import run_evaluators
                 try:
-                    await run_evaluators(job, accepted_results, db)
+                    await run_evaluators(job, accepted_results, db, api_keys)
                 except Exception as e:
                     logger.error(f"Job {job_id} evaluator pipeline failed: {e}")
 

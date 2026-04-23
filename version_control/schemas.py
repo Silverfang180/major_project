@@ -42,6 +42,7 @@ class VersionCreate(VersionBase):
 class VersionRead(VersionBase):
     version_id: int
     prompt_id: UUID
+    prompt_title: Optional[str] = None
     ordinal: int
     created_by: str
     created_at: datetime

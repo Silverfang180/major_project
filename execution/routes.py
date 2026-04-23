@@ -161,6 +161,34 @@ async def get_api_keys():
 
 # update_api_key endpoint removed for security. Config should be managed via .env or Orchestrator variables.
 
+class SimulateRequest(BaseModel):
+    prompt_text: str
+    provider: str
+    model: str
+    temperature: float = 0.7
+    max_tokens: int = 1000
+    input_vars: dict = {}
+
+@router.post("/simulate")
+async def simulate_prompt(
+    payload: SimulateRequest,
+    x_gemini_key: Optional[str] = Header(default=None, alias="X-Gemini-Key"),
+    x_groq_key: Optional[str] = Header(default=None, alias="X-Groq-Key")
+):
+    rendered = render_prompt(payload.prompt_text, payload.input_vars)
+    start_time = time.perf_counter()
+    try:
+        llm_result = await call_llm(
+            rendered_prompt=rendered,
+            model=payload.model,
+            temperature=payload.temperature,
+            max_tokens=payload.max_tokens,
+            gemini_api_key=x_gemini_key,
+            groq_api_key=x_groq_key
+        )
+        return llm_result
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
 
 @router.post("/execute/{prompt_key}", response_model=ExecuteResponse)
 async def execute_prompt(
@@ -170,7 +198,9 @@ async def execute_prompt(
     version_id: Optional[int] = Query(default=None, description="Specific version to execute"),
     alias: str = Query(default="production", description="Alias to resolve (production only in Phase-1)"),
     db: AsyncSession = Depends(get_session),
-    x_chronicle_user: str = Header(default="legacy-user", alias="X-Chronicle-User")
+    x_chronicle_user: str = Header(default="legacy-user", alias="X-Chronicle-User"),
+    x_gemini_key: Optional[str] = Header(default=None, alias="X-Gemini-Key"),
+    x_groq_key: Optional[str] = Header(default=None, alias="X-Groq-Key")
 ):
     """
     Execute a prompt with variable injection.
@@ -273,7 +303,9 @@ async def execute_prompt(
             rendered_prompt=rendered,
             model=model,
             temperature=temperature,
-            max_tokens=max_tokens
+            max_tokens=max_tokens,
+            gemini_api_key=x_gemini_key,
+            groq_api_key=x_groq_key
         )
         
         llm_response_text = llm_result["response"]

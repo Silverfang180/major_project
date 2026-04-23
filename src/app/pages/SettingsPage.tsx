@@ -40,15 +40,20 @@ export function SettingsPage() {
     
     setLoadingKeys(true);
     api.getApiKeys().then(keys => {
-      // Merge default providers with fetched keys
       const merged = DEFAULT_PROVIDERS.map(def => {
+        // If we have a local key, it overrides the system one for UI active status
+        const localVal = localStorage.getItem(`chronicle-key-${def.name}`);
+        if (localVal) {
+          return { ...def, status: "active" };
+        }
         const found = keys.find(k => k.name === def.name);
         return found || def;
       });
-      // Add any custom providers from API that aren't in defaults
+      // Add custom providers not in defaults
       keys.forEach(k => {
-        if (!DEFAULT_PROVIDERS.find(d => d.name === k.name)) {
-          merged.push(k);
+        if (!merged.find(d => d.name === k.name)) {
+          const localVal = localStorage.getItem(`chronicle-key-${k.name}`);
+          merged.push(localVal ? { ...k, status: "active" } : k);
         }
       });
       setApiKeys(merged);
@@ -58,26 +63,15 @@ export function SettingsPage() {
   async function handleUpdateKey(name: string) {
     const newKey = editKeys[name];
     if (!newKey || !newKey.trim()) return;
-    try {
-      await api.updateApiKey(name, newKey);
-      toast.success(`${name} API Key updated securely.`);
-      setEditKeys((prev) => ({ ...prev, [name]: "" }));
-      const updated = await api.getApiKeys();
-      // Re-merge after update
-      const mergedLabels = [...DEFAULT_PROVIDERS];
-      const merged = mergedLabels.map(def => {
-        const found = updated.find(k => k.name === def.name);
-        return found || def;
-      });
-      updated.forEach(k => {
-        if (!mergedLabels.find(d => d.name === k.name)) {
-          merged.push(k);
-        }
-      });
-      setApiKeys(merged);
-    } catch (e: any) {
-      toast.error(`Failed to update key: ${e.message}`);
-    }
+    
+    // Store locally on the device (secure from server breach)
+    localStorage.setItem(`chronicle-key-${name}`, newKey);
+    toast.success(`${name} API Key saved securely to your browser.`);
+    
+    setEditKeys((prev) => ({ ...prev, [name]: "" }));
+    
+    // Update local state to show it's active
+    setApiKeys(prev => prev.map(k => k.name === name ? {...k, status: "active"} : k));
   }
 
   // Apply theme to the DOM

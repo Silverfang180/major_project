@@ -420,7 +420,20 @@ async def list_trashed_prompts(
 
 @router.get("/versions/trash/all", response_model=List[VersionRead])
 async def list_trashed_versions(db: AsyncSession = Depends(get_session)):
-    """List all soft-deleted versions."""
-    stmt = select(PromptVersion).where(PromptVersion.deleted_at.is_not(None)).order_by(desc(PromptVersion.deleted_at))
+    """List all soft-deleted versions, including parent prompt title."""
+    stmt = (
+        select(PromptVersion, Prompt.title)
+        .join(Prompt, PromptVersion.prompt_id == Prompt.prompt_id)
+        .where(PromptVersion.deleted_at.is_not(None))
+        .order_by(PromptVersion.deleted_at.desc())
+    )
     result = await db.execute(stmt)
-    return result.scalars().all()
+    rows = result.all()
+    
+    versions = []
+    for row in rows:
+        v = row.PromptVersion
+        v_data = VersionRead.model_validate(v).model_copy(update={"prompt_title": row.title})
+        versions.append(v_data)
+        
+    return versions

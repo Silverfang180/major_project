@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet } from 'react-router';
 import { SideNavBar } from './SideNavBar';
 import { TopAppBar } from './TopAppBar';
 import { CreatePromptModal } from '../prompts/CreatePromptModal';

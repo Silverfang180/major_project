@@ -338,8 +338,9 @@ async def create_job(
     await db.commit()
     await db.refresh(job)
     
-    api_key = request.headers.get("X-API-Key", "")
-    background_tasks.add_task(run_eval_job, job.job_id, api_key)
+    x_gemini_key = request.headers.get("X-Gemini-Key", "")
+    x_groq_key = request.headers.get("X-Groq-Key", "")
+    background_tasks.add_task(run_eval_job, job.job_id, {"gemini": x_gemini_key, "groq": x_groq_key})
     
     return job
 

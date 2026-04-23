@@ -8,22 +8,7 @@ Pricing: https://console.groq.com/docs/pricing
 
 
 MODEL_PRICING = {
-    "openai/gpt-oss-120b": {
-        "input_cost_per_1k": 0.00015,
-        "output_cost_per_1k": 0.00060,
-    },
-    "openai/gpt-oss-20b": {
-        "input_cost_per_1k": 0.00005,
-        "output_cost_per_1k": 0.00008,
-    },
-    "moonshotai/kimi-k2-instruct": {
-        "input_cost_per_1k": 0.00018,
-        "output_cost_per_1k": 0.00050,
-    },
-    "meta-llama/llama-4-scout-17b-16e-instruct": {
-        "input_cost_per_1k": 0.00020,
-        "output_cost_per_1k": 0.00020,
-    },
+    # Groq
     "llama-3.3-70b-versatile": {
         "input_cost_per_1k": 0.00059,
         "output_cost_per_1k": 0.00079,
@@ -32,13 +17,22 @@ MODEL_PRICING = {
         "input_cost_per_1k": 0.00005,
         "output_cost_per_1k": 0.00008,
     },
-    "qwen/qwen3-32b": {
-        "input_cost_per_1k": 0.00007,
-        "output_cost_per_1k": 0.00010,
-    },
-    "openai/gpt-oss-safeguard-20b": {
+    "llama3-8b-8192": {
         "input_cost_per_1k": 0.00005,
-        "output_cost_per_1k": 0.00010,
+        "output_cost_per_1k": 0.00008,
+    },
+    "mixtral-8x7b-32768": {
+        "input_cost_per_1k": 0.00024,
+        "output_cost_per_1k": 0.00024,
+    },
+    # Gemini
+    "gemini-1.5-flash": {
+        "input_cost_per_1k": 0.0001,
+        "output_cost_per_1k": 0.0003,
+    },
+    "gemini-1.5-pro": {
+        "input_cost_per_1k": 0.00125,
+        "output_cost_per_1k": 0.00375,
     },
 }
 

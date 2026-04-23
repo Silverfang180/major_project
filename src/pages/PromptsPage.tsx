@@ -6,7 +6,7 @@ import { EmptyState } from '../components/prompts/EmptyState';
 import { SuccessToast } from '../components/ui/SuccessToast';
 import { api } from '../lib/api';
 import type { PromptResponse, VersionResponse } from '../lib/api';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext } from 'react-router';
 
 export const PromptsPage: React.FC = () => {
     const { openNewPromptModal, refreshTrigger } = useOutletContext<{ openNewPromptModal: () => void, refreshTrigger: number }>();

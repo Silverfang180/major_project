@@ -12,18 +12,21 @@ import { EmptyState } from "../components/shared/EmptyState";
 
 // ── Model pricing (mirrors the GUI) ──────────────────────────────────────────
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
+  // Groq
   "llama-3.3-70b-versatile": { input: 0.00059, output: 0.00079 },
   "llama-3.1-8b-instant":    { input: 0.00005, output: 0.00008 },
   "llama3-70b-8192":         { input: 0.00059, output: 0.00079 },
+  "llama3-8b-8192":          { input: 0.00005, output: 0.00008 },
   "mixtral-8x7b-32768":      { input: 0.00024, output: 0.00024 },
   "gemma2-9b-it":            { input: 0.00020, output: 0.00020 },
-  "gpt-4o":                  { input: 0.005,   output: 0.015   },
-  "gpt-4o-mini":             { input: 0.00015, output: 0.0006  },
+  // Gemini
+  "gemini-1.5-flash":        { input: 0.0001,  output: 0.0003 },
+  "gemini-1.5-pro":          { input: 0.00125, output: 0.00375 },
 };
 const MODEL_CONTEXT: Record<string, number> = {
   "llama-3.3-70b-versatile": 128000, "llama-3.1-8b-instant": 128000,
-  "llama3-70b-8192": 8192, "mixtral-8x7b-32768": 32768,
-  "gemma2-9b-it": 8192, "gpt-4o": 128000, "gpt-4o-mini": 128000,
+  "llama3-70b-8192": 8192, "llama3-8b-8192": 8192, "mixtral-8x7b-32768": 32768,
+  "gemma2-9b-it": 8192, "gemini-1.5-flash": 1000000, "gemini-1.5-pro": 2000000,
 };
 
 function estimateTokens(text: string) { return Math.ceil(text.length / 4); }
@@ -607,8 +610,8 @@ export function PromptsPage() {
                       {runResult.latency_ms && <span className="flex items-center gap-1"><Clock size={12} /> {runResult.latency_ms}ms</span>}
                       {runResult.cost_usd && <span className="flex items-center gap-1"><DollarSign size={12} /> ${runResult.cost_usd.toFixed(6)}</span>}
                     </div>
-                    <div className="p-4 bg-background/50">
-                      <pre className="text-[0.8125rem] text-slate-300 whitespace-pre-wrap font-mono leading-relaxed">
+                    <div className="p-4 bg-slate-50 dark:bg-background/50">
+                      <pre className="text-[0.8125rem] text-slate-800 dark:text-slate-300 whitespace-pre-wrap font-mono leading-relaxed">
                         {runResult.error_detail || (runResult as any).response || runResult.raw_response?.choices?.[0]?.message?.content || "No output"}
                       </pre>
                     </div>

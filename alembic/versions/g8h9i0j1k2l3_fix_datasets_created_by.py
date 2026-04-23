@@ -17,6 +17,7 @@ down_revision: str = 'f7a8b9c0d1e2'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
+from sqlalchemy.engine.reflection import Inspector
 
 def upgrade() -> None:
     # Fix datasets.created_by: UUID -> Text
@@ -28,15 +29,15 @@ def upgrade() -> None:
         postgresql_using='created_by::text'
     )
 
-    # Add eval_jobs.created_by if missing
-    try:
+    bind = op.get_bind()
+    inspector = Inspector.from_engine(bind)
+    columns = [c['name'] for c in inspector.get_columns('eval_jobs')]
+    
+    if 'created_by' not in columns:
         op.add_column('eval_jobs', sa.Column('created_by', sa.Text(), nullable=True))
         # Backfill any existing rows
         op.execute("UPDATE eval_jobs SET created_by = 'system' WHERE created_by IS NULL")
         op.alter_column('eval_jobs', 'created_by', nullable=False)
-    except Exception:
-        # Column might already exist
-        pass
 
 
 def downgrade() -> None:

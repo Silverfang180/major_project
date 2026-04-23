@@ -34,7 +34,7 @@ async def purge_old_trash():
     while True:
         try:
             logger.info("Running background trash purge...")
-            thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+            thirty_days_ago = datetime.utcnow() - timedelta(days=30)
             async with async_session() as db:
                 # Prompt Versions first (due to FK)
                 await db.execute(delete(PromptVersion).where(PromptVersion.deleted_at < thirty_days_ago))

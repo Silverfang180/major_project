@@ -84,7 +84,7 @@ Return a JSON object with exactly these keys:
 Return only the JSON object. No preamble, no markdown."""
 
 
-async def llm_judge(result: EvalResult, judge_model: str) -> tuple[bool, float]:
+async def llm_judge(result: EvalResult, judge_model: str, api_keys: dict[str, str] = None) -> tuple[bool, float]:
     """
     Uses a separate LLM to judge correctness.
     No shared context with the generator — only expected_output and raw_output passed.
@@ -95,8 +95,17 @@ async def llm_judge(result: EvalResult, judge_model: str) -> tuple[bool, float]:
         raw_output=result.raw_output or "",
     )
 
+    api_keys = api_keys or {}
+    gemini_key = api_keys.get("gemini")
+    groq_key = api_keys.get("groq")
+
     try:
-        llm_result = await call_llm(rendered_prompt=prompt, model=judge_model)
+        llm_result = await call_llm(
+            rendered_prompt=prompt, 
+            model=judge_model,
+            gemini_api_key=gemini_key,
+            groq_api_key=groq_key
+        )
         raw_response = llm_result["response"].strip()
         # Strip markdown fences if present
         if raw_response.startswith("```"):
@@ -237,6 +246,7 @@ async def run_evaluators(
     job: EvalJob,
     results: list[EvalResult],
     db: "AsyncSession",
+    api_keys: dict[str, str] = None,
 ) -> None:
     """
     Pipeline runner. Executes evaluators in order, updates EvalResult rows.
@@ -273,7 +283,7 @@ async def run_evaluators(
     if "llm_judge" in evaluators:
         judge_model = DEFAULT_JUDGE_MODEL
         for i, result in enumerate(results):
-            is_correct, score = await llm_judge(result, judge_model)
+            is_correct, score = await llm_judge(result, judge_model, api_keys)
             result.is_correct = is_correct
             result.evaluator_score = score
             if i < len(results) - 1:
